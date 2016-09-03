@@ -1,0 +1,17 @@
+syntax = "proto3";
+package workload;
+
+import "github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis/google/api/annotations.proto";
+
+message StringMessage {
+  string value = 1;
+}
+
+service YourService {
+  rpc Echo(StringMessage) returns (StringMessage) {
+    option (google.api.http) = {
+      post: "/v1/example/echo"
+      body: "*"
+    };
+  }
+}

@@ -12,12 +12,17 @@ all: install
 # install installs binary
 .PHONY: install
 install: 
-	go install github.com/spiffe/spiffe/tool/spiffe
+	go install github.com/spiffe/spiffe/tool/spiffe github.com/spiffe/spiffe/tool/spiffectl
 
 # run runs local dev server
 .PHONY: run
 run: install
-	spiffe
+	spiffe --debug
+
+# send sends test message
+.PHONY: send
+send: install
+	spiffectl "hola, SPIFFE"
 
 # buildbox builds docker buildbox image used to compile binaries and generate GRPc stuff
 .PHONY: buildbox

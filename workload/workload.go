@@ -105,7 +105,6 @@ type Workloads interface {
 // and workload 'dev', NodeCA will produce CSR with the following fields set:
 //   * SubjectCommonName: example.com
 //   * SubjectAltName: urn:spiffe:example.com:opaque.id
-//   * Extension: spiffe ASN, value: workload ID
 //
 // Workload Server will:
 //
@@ -113,5 +112,5 @@ type Workloads interface {
 // * Fetch CertAuthority with ID `example.com`
 // * Use it to process CSR with TTL <= MaxTTL in the ScopedID of the workload
 type Signer interface {
-	ProcessCSR(x509.CertificateRequest) (x509.Certificate, error)
+	ProcessCSR(workloadID string, req x509.CertificateRequest) (x509.Certificate, error)
 }

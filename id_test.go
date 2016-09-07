@@ -64,3 +64,15 @@ func (s *IDSuite) TestParsing(c *C) {
 		}
 	}
 }
+
+// TestExtensions test marshalling/unmarshalling of X509 extensions
+func (s *IDSuite) TestExtensions(c *C) {
+	id := MustParseID("urn:spiffe:example.com:a:b")
+	extension, err := id.X509Extension()
+	c.Assert(err, IsNil)
+	c.Assert(extension, NotNil)
+	out, err := ParseIDsFromX509Extension(*extension)
+	c.Assert(err, IsNil)
+	c.Assert(len(out), Equals, 1)
+	c.Assert(out[0], DeepEquals, id)
+}

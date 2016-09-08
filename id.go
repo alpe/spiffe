@@ -60,6 +60,8 @@ func IDsFromCertificate(cert x509.Certificate) ([]ID, error) {
 	return out, nil
 }
 
+// ParseIDsFromX509Extension finds URN SubjectAltNames that are SPIFFe IDs
+// and returns the list of found IDs back
 func ParseIDsFromX509Extension(e pkix.Extension) ([]ID, error) {
 	var seq asn1.RawValue
 	rest, err := asn1.Unmarshal(e.Value, &seq)

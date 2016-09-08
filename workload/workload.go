@@ -1,5 +1,5 @@
 /*
-Copyright 2016 SPIFFE authors
+Copyright 2016 SPIFFE Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import (
 	"crypto/x509"
 	"time"
 
+	"github.com/gravitational/trace"
 	"github.com/spiffe/spiffe"
 	"golang.org/x/net/context"
 )
@@ -29,22 +30,70 @@ import (
 type CertAuthority struct {
 	// ID is a unique identifier of the authority, usually SPIFFE org name
 	ID string
-	// Cert is a certificate of the certificate signing authority
-	Cert x509.Certificate
-	// PrivateKey is optional (in case if this CA can sign, otherwise it can
-	// be used as a trusted root
-	PrivateKey crypto.Signer
+	// Cert is a PEM-encoded certificate of the certificate signing authority
+	Cert []byte
+	// PrivateKey is PEM-encoded private key of the certificate signing authority
+	PrivateKey []byte
+}
+
+func (c *CertAuthority) ParseCertificate() (*x509.Certificate, error) {
+	if len(c.Cert) == 0 {
+		return nil, trace.BadParameter("missing parameter Cert")
+	}
+	return ParseCertificatePEM(c.Cert)
+}
+
+func (c *CertAuthority) ParsePrivateKey() (crypto.Signer, error) {
+	if len(c.PrivateKey) == 0 {
+		return nil, trace.BadParameter("missing parameter PrivateKey")
+	}
+	return ParsePrivateKeyPEM(c.PrivateKey)
+}
+
+func (c *CertAuthority) Check() error {
+	if c.ID == "" {
+		return trace.BadParameter("missing parameter ID")
+	}
+
+	_, err := c.ParseCertificate()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	if len(c.PrivateKey) != 0 {
+		if _, err := c.ParsePrivateKey(); err != nil {
+			return trace.Wrap(err)
+		}
+	}
+
+	return nil
 }
 
 // Authorities manages certificate authorities
 type Authorities interface {
 	// UpsertCertAuthority updates or inserts certificate authority
 	// In case if CA can sign, Private
-	UpsertCertAuthority(CertAuthority) error
+	UpsertCertAuthority(ctx context.Context, ca CertAuthority) error
 	// GetCertAuthority returns Certificate Authority by given ID
-	GetCertAuthority(id string) (*CertAuthority, error)
+	GetCertAuthority(ctx context.Context, id string) (*CertAuthority, error)
 	// DeleteCertAuthority deletes Certificate Authority by ID
-	DeleteCertAuthority(id string) error
+	DeleteCertAuthority(ctx context.Context, id string) error
+}
+
+// TrustedRoot represents trusted root x509 certificate authority certificate
+type TrustedRoot struct {
+	// ID is a unique certificate ID
+	ID string
+	// Cert is PEM-encoded trusted cert bytes
+	Cert []byte
+}
+
+// TrustedRoots manages collection trusted root certificates
+type TrustedRoots interface {
+	// UpsertTrustedRoot updates or insert trusted root certificate
+	UpsertTrustedRoot(ctx context.Context, root TrustedRoot) error
+	// GetTrustedRoot returns trusted root certificate by its ID
+	GetTrustedRoot(ctx context.Context, id string) (*TrustedRoot, error)
 }
 
 // ScopedID represents SPIFFE ID with attached
@@ -112,5 +161,52 @@ type Workloads interface {
 // * Fetch CertAuthority with ID `example.com`
 // * Use it to process CSR with TTL <= MaxTTL in the ScopedID of the workload
 type Signer interface {
-	ProcessCSR(workloadID string, req x509.CertificateRequest) (x509.Certificate, error)
+	ProcessCSR(ctx context.Context, req x509.CertificateRequest) (x509.Certificate, error)
+}
+
+// Permissions controls collection with permissions
+type Permissions interface {
+	// UpsertPermission updates or inserts permission for actor identified by SPIFFE ID
+	UpsertPermission(ctx context.Context, p Permission) error
+	// GetPermissions returns list of permissions for actor identified by SPIFFE ID
+	GetPermissions(ctx context.Context, id spiffe.ID) ([]Permission, error)
+
+	// UpsertSignPermission updates or inserts permission for actor identified by SPIFFE ID
+	UpsertSignPermission(ctx context.Context, p SignPermission) error
+	// GetSignPermissions returns list of permissions for actor identified by SPIFFE ID
+	GetSignPermissions(ctx context.Context, id spiffe.ID) ([]SignPermission, error)
+}
+
+// Permission grants some actor identified by SPIFFE ID permssion to
+// execute some action. Reads as:
+// This actor with identifier ID can Action on Collection with element CollectionID
+type Permission struct {
+	ID spiffe.ID
+	// Action  is the action that this
+	Action string
+	// Collection represents some stored collection of elements
+	Collection string
+	// CollectionID, if specified limits the scope
+	CollectionID string
+}
+
+const (
+	// CollectionWorkloads represents collection of workloads
+	CollectionWorkloads = "workloads"
+	// CollectionTrustedRoots is a collection with trusted root certificates
+	CollectionTrustedRoots = "roots"
+	// CollectionCertAuthorities is a collection with certificate
+	CollectionCertAuthorities = "authorities"
+	// CollectionPermissions controls collection with permissions
+	CollectionPermissions = "permissions"
+)
+
+// SignPermission reads as:
+// this ID can generate certificates for organisation Org and SPIFFE ids IDs
+// using certificate authority CertAuthorityID
+type SignPermission struct {
+	ID              spiffe.ID
+	Org             string
+	IDs             []spiffe.ID
+	CertAuthorityID string
 }

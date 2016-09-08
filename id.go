@@ -30,6 +30,18 @@ type ID struct {
 	Opaque string
 }
 
+func (i *ID) IsEmpty() bool {
+	return i.Org == "" && i.Opaque == ""
+}
+
+func (i *ID) Check() error {
+	_, err := ParseID(i.String())
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
 func (i *ID) String() string {
 	return fmt.Sprintf("urn:spiffe:%v%v", i.Org, i.Opaque)
 }

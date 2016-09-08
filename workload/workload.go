@@ -36,14 +36,14 @@ type CertAuthority struct {
 	PrivateKey []byte
 }
 
-func (c *CertAuthority) ParseCertificate() (*x509.Certificate, error) {
+func (c *CertAuthority) ParsedCertificate() (*x509.Certificate, error) {
 	if len(c.Cert) == 0 {
 		return nil, trace.BadParameter("missing parameter Cert")
 	}
 	return ParseCertificatePEM(c.Cert)
 }
 
-func (c *CertAuthority) ParsePrivateKey() (crypto.Signer, error) {
+func (c *CertAuthority) ParsedPrivateKey() (crypto.Signer, error) {
 	if len(c.PrivateKey) == 0 {
 		return nil, trace.BadParameter("missing parameter PrivateKey")
 	}
@@ -55,13 +55,13 @@ func (c *CertAuthority) Check() error {
 		return trace.BadParameter("missing parameter ID")
 	}
 
-	_, err := c.ParseCertificate()
+	_, err := c.ParsedCertificate()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
 	if len(c.PrivateKey) != 0 {
-		if _, err := c.ParsePrivateKey(); err != nil {
+		if _, err := c.ParsedPrivateKey(); err != nil {
 			return trace.Wrap(err)
 		}
 	}
@@ -88,12 +88,32 @@ type TrustedRoot struct {
 	Cert []byte
 }
 
+// ParsedCertificate returns parsed certificate
+func (r *TrustedRoot) ParsedCertificate() (*x509.Certificate, error) {
+	if len(r.Cert) == 0 {
+		return nil, trace.BadParameter("missing parameter Cert")
+	}
+	return ParseCertificatePEM(r.Cert)
+}
+
+func (r *TrustedRoot) Check() error {
+	if r.ID == "" {
+		return trace.BadParameter("missing parameter ID")
+	}
+	if _, err := r.ParsedCertificate(); err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
 // TrustedRoots manages collection trusted root certificates
 type TrustedRoots interface {
 	// UpsertTrustedRoot updates or insert trusted root certificate
 	UpsertTrustedRoot(ctx context.Context, root TrustedRoot) error
 	// GetTrustedRoot returns trusted root certificate by its ID
 	GetTrustedRoot(ctx context.Context, id string) (*TrustedRoot, error)
+	// DeleteTrustedRoot deletes TrustedRoot by its ID
+	DeleteTrustedRoot(ctx context.Context, id string) error
 }
 
 // ScopedID represents SPIFFE ID with attached
@@ -119,6 +139,22 @@ type Workload struct {
 	TrustedRootIDs []string
 }
 
+// Check checks whether all workload params are valid
+func (w *Workload) Check() error {
+	if w.ID == "" {
+		return trace.BadParameter("missing parameter ID")
+	}
+	if len(w.Identities) == 0 {
+		return trace.BadParameter("missing parameter Identities")
+	}
+	for _, id := range w.Identities {
+		if err := id.ID.Check(); err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	return nil
+}
+
 // WorkloadEvent represents any change to a given workload
 type WorkloadEvent struct {
 	// ID is a unique workload ID
@@ -139,14 +175,14 @@ const (
 // Workloads is a SPIFFE workload API
 type Workloads interface {
 	// UpsertWorkload update existing or insert new workload
-	UpsertWorkload(ctx context.Context, w Workload) (*Workload, error)
+	UpsertWorkload(ctx context.Context, w Workload) error
 	// DeleteWorkload deletes workload
 	DeleteWorkload(ctx context.Context, ID string) error
 	// GetWorkload returns workload identified by ID
 	GetWorkload(ctx context.Context, ID string) (*Workload, error)
 	// Subscribe returns a stream of events associated with given workload IDs
 	// if you wish to cancel the stream, use ctx.Close
-	Subscribe(ctx context.Context, IDs []string) (<-chan WorkloadEvent, error)
+	Subscribe(ctx context.Context) (<-chan *WorkloadEvent, error)
 }
 
 // Signer is a workload-aware certificate signer.
@@ -168,13 +204,12 @@ type Signer interface {
 type Permissions interface {
 	// UpsertPermission updates or inserts permission for actor identified by SPIFFE ID
 	UpsertPermission(ctx context.Context, p Permission) error
-	// GetPermissions returns list of permissions for actor identified by SPIFFE ID
-	GetPermissions(ctx context.Context, id spiffe.ID) ([]Permission, error)
-
+	// GetPermission returns permission for actor identified by SPIFFE ID
+	GetPermission(ctx context.Context, p Permission) (*Permission, error)
 	// UpsertSignPermission updates or inserts permission for actor identified by SPIFFE ID
 	UpsertSignPermission(ctx context.Context, p SignPermission) error
-	// GetSignPermissions returns list of permissions for actor identified by SPIFFE ID
-	GetSignPermissions(ctx context.Context, id spiffe.ID) ([]SignPermission, error)
+	// GetSignPermission return permission for actor identified by SPIFFE ID
+	GetSignPermission(ctx context.Context, sp SignPermission) (*SignPermission, error)
 }
 
 // Permission grants some actor identified by SPIFFE ID permssion to
@@ -189,6 +224,31 @@ type Permission struct {
 	// CollectionID, if specified limits the scope
 	CollectionID string
 }
+
+// Check checks whether permission is valid
+func (p *Permission) Check() error {
+	if err := p.ID.Check(); err != nil {
+		return trace.Wrap(err)
+	}
+	switch p.Action {
+	case ActionRead, ActionUpdate, ActionCreate, ActionDelete:
+	case "":
+		return trace.BadParameter("missing parameter Action")
+	default:
+		return trace.BadParameter("unsupported Action: '%v'", p.Action)
+	}
+	if p.Collection == "" {
+		return trace.BadParameter("missing parameter Collection")
+	}
+	return nil
+}
+
+const (
+	ActionRead   = "read"
+	ActionUpdate = "update"
+	ActionCreate = "create"
+	ActionDelete = "delete"
+)
 
 const (
 	// CollectionWorkloads represents collection of workloads
@@ -205,8 +265,24 @@ const (
 // this ID can generate certificates for organisation Org and SPIFFE ids IDs
 // using certificate authority CertAuthorityID
 type SignPermission struct {
-	ID              spiffe.ID
-	Org             string
-	IDs             []spiffe.ID
+	ID spiffe.ID
+	// CertAuthorityID if present allows signing using particular certificate authority ID
 	CertAuthorityID string
+	// Org if present, limits generating CSRs to get certificates for paricular org name
+	Org string
+	// SignID if present, limits using signing for particular SpiffeID
+	SignID *spiffe.ID
+}
+
+// Check checks whether sign permission parameters are valid
+func (p *SignPermission) Check() error {
+	if err := p.ID.Check(); err != nil {
+		return trace.Wrap(err)
+	}
+	if p.SignID != nil {
+		if err := p.SignID.Check(); err != nil {
+			return trace.BadParameter("missing parameter IDs")
+		}
+	}
+	return nil
 }

@@ -47,6 +47,9 @@ const (
 
 // Config defines the configuration to access etcd
 type Config struct {
+	// BackoffPeriod is a period between retries on failed API events
+	// e.g. Watch on key
+	BackoffPeriod time.Duration
 	// Nodes lists etcd server endpoints (http://host:port)
 	Nodes []string
 	// Key is ETCD key prefix

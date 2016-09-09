@@ -33,7 +33,7 @@ import (
 const (
 	DefaultBackoffPeriod = time.Second
 	authoritiesP         = "authorities"
-	rootsP               = "roots"
+	bundlesP             = "bundles"
 	permissionsP         = "permissions"
 	signPermissionsP     = "signpermissions"
 	workloadsP           = "workloads"
@@ -395,16 +395,16 @@ func (b *Backend) DeleteSignPermission(ctx context.Context, sp workload.SignPerm
 	return trace.Wrap(convertErr(err))
 }
 
-// UpsertTrustedRootBundle updates or insert trusted root certificate bundle
-func (b *Backend) UpsertTrustedRootBundle(ctx context.Context, root workload.TrustedRootBundle) error {
-	if err := root.Check(); err != nil {
+// CreateTrustedRootBundle creates trusted root certificate bundle
+func (b *Backend) CreateTrustedRootBundle(ctx context.Context, bundle workload.TrustedRootBundle) error {
+	if err := bundle.Check(); err != nil {
 		return trace.Wrap(err)
 	}
-	val, err := marshal(root)
+	val, err := marshal(bundle)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	_, err = b.keys.Set(ctx, b.key(rootsP, root.ID), val, nil)
+	_, err = b.keys.Set(ctx, b.key(bundlesP, bundle.ID), val, &etcd.SetOptions{PrevExist: etcd.PrevNoExist})
 	if err = convertErr(err); err != nil {
 		return trace.Wrap(err)
 	}
@@ -412,39 +412,28 @@ func (b *Backend) UpsertTrustedRootBundle(ctx context.Context, root workload.Tru
 }
 
 // GetTrustedRootBundle returns trusted root certificate bundle by its ID
-func (b *Backend) GetTrustedRoot(ctx context.Context, id string) (*workload.TrustedRoot, error) {
+func (b *Backend) GetTrustedRootBundle(ctx context.Context, id string) (*workload.TrustedRootBundle, error) {
 	if id == "" {
 		return nil, trace.BadParameter("missing parameter ID")
 	}
-	re, err := b.keys.Get(ctx, b.key(rootsP, id), nil)
+	re, err := b.keys.Get(ctx, b.key(bundlesP, id), nil)
 	if err = convertErr(err); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	var r workload.TrustedRoot
-	if err := unmarshal(re.Node.Value, &r); err != nil {
+	var bundle workload.TrustedRootBundle
+	if err := unmarshal(re.Node.Value, &bundle); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return &r, nil
+	return &bundle, nil
 }
 
-// DeleteTrustedRoot deletes TrustedRoot by its ID
-func (b *Backend) DeleteTrustedRoot(ctx context.Context, id string) error {
+// DeleteTrustedRootBundle deletes TrustedRootBundle by its ID
+func (b *Backend) DeleteTrustedRootBundle(ctx context.Context, id string) error {
 	if id == "" {
 		return trace.BadParameter("missing parameter ID")
 	}
-	_, err := b.keys.Delete(ctx, b.key(rootsP, id), nil)
+	_, err := b.keys.Delete(ctx, b.key(bundlesP, id), nil)
 	return trace.Wrap(convertErr(err))
-}
-
-func (b *Backend) GetWorkloadTrustedRoots(ctx context.Context, workloadID string) ([]workload.TrustedRoot, error) {
-	workload, err := b.GetWorkload(ctx, workloadID)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	re, err := b.keys.Get(ctx, b.key(rootsP), &etcd.GetOptions{Recursive: true})
-	if err = convertErr(err); err != nil {
-		return nil, trace.Wrap(err)
-	}
 }
 
 func (b *Backend) key(prefix string, keys ...string) string {

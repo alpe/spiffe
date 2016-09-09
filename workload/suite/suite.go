@@ -142,24 +142,30 @@ func (s *WorkloadSuite) CertAuthoritiesCRUD(c *C) {
 	c.Assert(trace.IsNotFound(err), Equals, true)
 }
 
-func (s *WorkloadSuite) TrustedRootsCRUD(c *C) {
+func (s *WorkloadSuite) TrustedRootBundlesCRUD(c *C) {
 	ctx := context.TODO()
-	root := workload.TrustedRoot{
-		ID:   "example.com",
-		Cert: []byte(certAuthorityCertPEM),
+	bundle := workload.TrustedRootBundle{
+		ID: "prod",
+		Certs: []workload.TrustedRootCert{{
+			ID:   "example.com",
+			Cert: []byte(certAuthorityCertPEM),
+		}},
 	}
-	err := s.C.UpsertTrustedRoot(ctx, root)
+	err := s.C.CreateTrustedRootBundle(ctx, bundle)
 	c.Assert(err, IsNil)
 
-	out, err := s.C.GetTrustedRoot(ctx, root.ID)
-	c.Assert(err, IsNil)
-	c.Assert(out, DeepEquals, &root)
+	err = s.C.CreateTrustedRootBundle(ctx, bundle)
+	c.Assert(trace.IsAlreadyExists(err), Equals, true, Commentf("%T", err))
 
-	err = s.C.DeleteTrustedRoot(ctx, root.ID)
+	out, err := s.C.GetTrustedRootBundle(ctx, bundle.ID)
+	c.Assert(err, IsNil)
+	c.Assert(out, DeepEquals, &bundle)
+
+	err = s.C.DeleteTrustedRootBundle(ctx, bundle.ID)
 	c.Assert(err, IsNil)
 
-	_, err = s.C.GetTrustedRoot(ctx, root.ID)
-	c.Assert(trace.IsNotFound(err), Equals, true)
+	_, err = s.C.GetTrustedRootBundle(ctx, bundle.ID)
+	c.Assert(trace.IsNotFound(err), Equals, true, Commentf("%T", err))
 }
 
 const (

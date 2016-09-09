@@ -135,8 +135,8 @@ func (r *TrustedRootCert) Check() error {
 
 // TrustedRootBundles manages collection trusted root certificates
 type TrustedRootBundles interface {
-	// UpsertTrustedRootBundle updates or insert trusted root certificate bundle
-	UpsertTrustedRootBundle(ctx context.Context, bundle TrustedRootBundle) error
+	// CreateTrustedRootBundle creates trusted root certificate bundle
+	CreateTrustedRootBundle(ctx context.Context, bundle TrustedRootBundle) error
 	// GetTrustedRoot returns trusted root certificate by its ID
 	GetTrustedRootBundle(ctx context.Context, id string) (*TrustedRootBundle, error)
 	// DeleteTrustedRootBundle deletes TrustedRoot by its ID
@@ -325,7 +325,7 @@ func (p *SignPermission) Check() error {
 // Collections manages stored collections - Workloads, Permissions, Authorities and TrustedRoots
 type Collections interface {
 	Permissions
-	TrustedRoots
+	TrustedRootBundles
 	Authorities
 	Workloads
 }

@@ -151,6 +151,12 @@ func (s *WorkloadSuite) TrustedRootBundlesCRUD(c *C) {
 			Cert: []byte(certAuthorityCertPEM),
 		}},
 	}
+	for i := 0; i < 600; i++ {
+		bundle.Certs = append(bundle.Certs, workload.TrustedRootCert{
+			ID:   "example.com",
+			Cert: []byte(certAuthorityCertPEM),
+		})
+	}
 	err := s.C.CreateTrustedRootBundle(ctx, bundle)
 	c.Assert(err, IsNil)
 
@@ -166,6 +172,22 @@ func (s *WorkloadSuite) TrustedRootBundlesCRUD(c *C) {
 
 	_, err = s.C.GetTrustedRootBundle(ctx, bundle.ID)
 	c.Assert(trace.IsNotFound(err), Equals, true, Commentf("%T", err))
+}
+
+func (s *WorkloadSuite) PermissionsCRUD(c *C) {
+	ctx := context.TODO()
+	p1 := workload.Permission{
+		ID:         bobID,
+		Action:     workload.ActionCreate,
+		Collection: workload.CollectionCertAuthorities,
+	}
+
+	err := s.C.UpsertPermission(ctx, p1)
+	c.Assert(err, IsNil)
+
+	out, err := s.C.GetPermission(ctx, p1)
+	c.Assert(err, IsNil)
+	c.Assert(out, DeepEquals, &p1)
 }
 
 const (

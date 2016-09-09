@@ -78,3 +78,11 @@ func (s *ESuite) TestEvents(c *C) {
 func (s *ESuite) TestCertAuthoritiesCRUD(c *C) {
 	s.suite.CertAuthoritiesCRUD(c)
 }
+
+func (s *ESuite) TestTrustedRootBundlesCRUD(c *C) {
+	s.suite.TrustedRootBundlesCRUD(c)
+}
+
+func (s *ESuite) TestPermissionsCRUD(c *C) {
+	s.suite.PermissionsCRUD(c)
+}

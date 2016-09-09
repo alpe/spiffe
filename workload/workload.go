@@ -286,8 +286,6 @@ const (
 const (
 	// CollectionWorkloads represents collection of workloads
 	CollectionWorkloads = "workloads"
-	// CollectionTrustedRoots is a collection with trusted root certificates
-	CollectionTrustedRoots = "roots"
 	// CollectionTrustedRootBundles is a collection with trusted root certificate bundles
 	CollectionTrustedRootBundles = "rootbundles"
 	// CollectionCertAuthorities is a collection with certificate

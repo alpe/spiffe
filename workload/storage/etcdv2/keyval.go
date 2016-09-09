@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// package etcdv2 implements etcd V2 client backend for workload API
 package etcdv2
 
 import (
@@ -287,7 +288,7 @@ func (b *Backend) Subscribe(ctx context.Context) (<-chan *workload.WorkloadEvent
 
 // UpsertPermission updates or inserts permission for actor identified by SPIFFE ID
 func (b *Backend) UpsertPermission(ctx context.Context, p workload.Permission) error {
-	key, err := permKey(p)
+	key, err := b.permKey(p)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -295,19 +296,17 @@ func (b *Backend) UpsertPermission(ctx context.Context, p workload.Permission) e
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	_, err = b.keys.Set(ctx, b.key(
-		permissionsP, key.id, key.action, key.collection, key.collectionID), val, nil)
+	_, err = b.keys.Set(ctx, key, val, nil)
 	return trace.Wrap(convertErr(err))
 }
 
 // GetPermission return list permissions for actor identified by SPIFFE ID
 func (b *Backend) GetPermission(ctx context.Context, p workload.Permission) (*workload.Permission, error) {
-	key, err := permKey(p)
+	key, err := b.permKey(p)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	re, err := b.keys.Get(ctx, b.key(
-		permissionsP, key.id, key.action, key.collection, key.collectionID), nil)
+	re, err := b.keys.Get(ctx, key, nil)
 	if err = convertErr(err); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -316,6 +315,16 @@ func (b *Backend) GetPermission(ctx context.Context, p workload.Permission) (*wo
 		return nil, trace.Wrap(err)
 	}
 	return &out, nil
+}
+
+// DeletePermission deletes permission
+func (b *Backend) DeletePermission(ctx context.Context, p workload.Permission) error {
+	key, err := b.permKey(p)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	_, err = b.keys.Delete(ctx, key, nil)
+	return trace.Wrap(convertErr(err))
 }
 
 // UpsertSignPermission updates or inserts permission for actor identified by SPIFFE ID
@@ -356,14 +365,13 @@ func (b *Backend) UpsertSignPermission(ctx context.Context, s workload.SignPermi
 
 // GetSignPermissions returns list of permissions for actor identified by SPIFFE ID
 func (b *Backend) GetSignPermission(ctx context.Context, sp workload.SignPermission) (*workload.SignPermission, error) {
-	key, err := signKey(sp)
+	key, err := b.signKey(sp)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	re, err := b.keys.Get(ctx, b.key(
-		signPermissionsP, key.id, key.certAuthorityID, key.org, key.signID), nil)
+	re, err := b.keys.Get(ctx, key, nil)
 	if err = convertErr(err); err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 	var p workload.SignPermission
 	if err := unmarshal(re.Node.Value, &p); err != nil {
@@ -372,17 +380,26 @@ func (b *Backend) GetSignPermission(ctx context.Context, sp workload.SignPermiss
 	return &p, nil
 }
 
+// DeleteSignPermission deletes sign permission
+func (b *Backend) DeleteSignPermission(ctx context.Context, sp workload.SignPermission) error {
+	key, err := b.signKey(sp)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	_, err = b.keys.Delete(ctx, key, nil)
+	return trace.Wrap(convertErr(err))
+}
+
 // UpsertTrustedRoot updates or insert trusted root certificate
 func (b *Backend) UpsertTrustedRoot(ctx context.Context, root workload.TrustedRoot) error {
 	if err := root.Check(); err != nil {
 		return trace.Wrap(err)
 	}
-	val, err := marshal(p)
+	val, err := marshal(root)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	_, err = b.keys.Set(ctx, b.key(
-		signPermissionsP, s.ID.String(), certAuthorityID, org, signID), val, nil)
+	_, err = b.keys.Set(ctx, b.key(rootsP, root.ID), val, nil)
 	if err = convertErr(err); err != nil {
 		return trace.Wrap(err)
 	}
@@ -391,10 +408,27 @@ func (b *Backend) UpsertTrustedRoot(ctx context.Context, root workload.TrustedRo
 
 // GetTrustedRoot returns trusted root certificate by its ID
 func (b *Backend) GetTrustedRoot(ctx context.Context, id string) (*workload.TrustedRoot, error) {
+	if id == "" {
+		return nil, trace.BadParameter("missing parameter ID")
+	}
+	re, err := b.keys.Get(ctx, b.key(rootsP, id), nil)
+	if err = convertErr(err); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	var r workload.TrustedRoot
+	if err := unmarshal(re.Node.Value, &r); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &r, nil
 }
 
 // DeleteTrustedRoot deletes TrustedRoot by its ID
 func (b *Backend) DeleteTrustedRoot(ctx context.Context, id string) error {
+	if id == "" {
+		return trace.BadParameter("missing parameter ID")
+	}
+	_, err := b.keys.Delete(ctx, b.key(rootsP, id), nil)
+	return trace.Wrap(convertErr(err))
 }
 
 func (b *Backend) key(prefix string, keys ...string) string {
@@ -438,12 +472,12 @@ type signPermissionKey struct {
 	certAuthorityID string
 }
 
-func signKey(s workload.SignPermission) (*signPermissionKey, error) {
+func (b *Backend) signKey(s workload.SignPermission) (string, error) {
 	if err := s.Check(); err != nil {
-		return nil, trace.Wrap(err)
+		return "", trace.Wrap(err)
 	}
 	if s.Org == allCollections || s.CertAuthorityID == allCollections {
-		return nil, trace.BadParameter("reserved value %v", allCollections)
+		return "", trace.BadParameter("reserved value %v", allCollections)
 	}
 	key := &signPermissionKey{id: s.ID.String()}
 	if s.SignID != nil {
@@ -461,7 +495,8 @@ func signKey(s workload.SignPermission) (*signPermissionKey, error) {
 	} else {
 		key.certAuthorityID = s.CertAuthorityID
 	}
-	return key, nil
+	return b.key(
+		signPermissionsP, key.id, key.certAuthorityID, key.org, key.signID), nil
 }
 
 type permissionKey struct {
@@ -471,12 +506,12 @@ type permissionKey struct {
 	collectionID string
 }
 
-func permKey(p workload.Permission) (*permissionKey, error) {
+func (b *Backend) permKey(p workload.Permission) (string, error) {
 	if err := p.Check(); err != nil {
-		return nil, trace.Wrap(err)
+		return "", trace.Wrap(err)
 	}
 	if p.CollectionID == allCollections {
-		return nil, trace.BadParameter("reserved value %v", allCollections)
+		return "", trace.BadParameter("reserved value %v", allCollections)
 	}
 	key := &permissionKey{
 		id:         p.ID.String(),
@@ -486,5 +521,6 @@ func permKey(p workload.Permission) (*permissionKey, error) {
 	if p.CollectionID == "" {
 		key.collectionID = allCollections
 	}
-	return key, nil
+	return b.key(
+		permissionsP, key.id, key.action, key.collection, key.collectionID), nil
 }

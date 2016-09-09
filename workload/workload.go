@@ -206,10 +206,14 @@ type Permissions interface {
 	UpsertPermission(ctx context.Context, p Permission) error
 	// GetPermission returns permission for actor identified by SPIFFE ID
 	GetPermission(ctx context.Context, p Permission) (*Permission, error)
+	// DeletePermission deletes permission
+	DeletePermission(ctx context.Context, p Permission) error
 	// UpsertSignPermission updates or inserts permission for actor identified by SPIFFE ID
 	UpsertSignPermission(ctx context.Context, p SignPermission) error
 	// GetSignPermission return permission for actor identified by SPIFFE ID
 	GetSignPermission(ctx context.Context, sp SignPermission) (*SignPermission, error)
+	// DeleteSignPermission deletes sign permission
+	DeleteSignPermission(ctx context.Context, sp SignPermission) error
 }
 
 // Permission grants some actor identified by SPIFFE ID permssion to

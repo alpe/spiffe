@@ -188,7 +188,6 @@ func unmarshal(data string, val interface{}) error {
 }
 
 func processWorkloadEvent(ctx context.Context, prefix string, re *etcd.Response, eventsC chan *workload.WorkloadEvent) {
-	log.Infof("processWorkloadEvent(actoin=%v key=%v)", re.Action, re.Node.Key)
 	// set, delete, update, create, compareAndSwap, compareAndDelete and expire.
 	if !strings.HasPrefix(re.Node.Key, prefix) {
 		log.Debugf("skipping non-workload event: %v", re.Node.Key)
@@ -248,6 +247,7 @@ func (b *Backend) Subscribe(ctx context.Context, eventC chan *workload.WorkloadE
 		}()
 		for {
 			re, err = watcher.Next(ctx)
+			log.Infof("processWorkloadEvent(%v,%v)", re.Action, re.Node.Key)
 			if err == nil {
 				processWorkloadEvent(ctx, workloadsKey, re, eventC)
 			}
@@ -284,6 +284,7 @@ func (b *Backend) Subscribe(ctx context.Context, eventC chan *workload.WorkloadE
 			case <-ctx.Done():
 				log.Infof("context is closing, return")
 				return
+			default:
 			}
 		}
 	}()

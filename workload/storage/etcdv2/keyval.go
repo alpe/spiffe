@@ -452,13 +452,13 @@ func convertErr(e error) error {
 		return &trace.ConnectionProblemError{Err: err, Message: err.Detail()}
 	case etcd.Error:
 		switch err.Code {
-		case client.ErrorCodeKeyNotFound:
+		case etcd.ErrorCodeKeyNotFound:
 			return &trace.NotFoundError{Message: err.Error()}
-		case client.ErrorCodeNotFile:
+		case etcd.ErrorCodeNotFile:
 			return &trace.BadParameterError{Message: err.Error()}
-		case client.ErrorCodeNodeExist:
+		case etcd.ErrorCodeNodeExist:
 			return &trace.AlreadyExistsError{Message: err.Error()}
-		case client.ErrorCodeTestFailed:
+		case etcd.ErrorCodeTestFailed:
 			return &trace.CompareFailedError{Message: err.Error()}
 		}
 	}

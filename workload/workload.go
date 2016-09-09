@@ -22,8 +22,9 @@ import (
 	"crypto/x509"
 	"time"
 
-	"github.com/gravitational/trace"
 	"github.com/spiffe/spiffe"
+
+	"github.com/gravitational/trace"
 	"golang.org/x/net/context"
 )
 
@@ -289,4 +290,12 @@ func (p *SignPermission) Check() error {
 		}
 	}
 	return nil
+}
+
+// Collections manages stored collections - Workloads, Permissions, Authorities and TrustedRoots
+type Collections interface {
+	Permissions
+	TrustedRoots
+	Authorities
+	Workloads
 }

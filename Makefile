@@ -5,6 +5,13 @@ BUILDBOX_TAG := spifee-buildbox:0.0.1
 PLATFORM := linux-x86_64
 GRPC_DIRS := workload/workloadpb
 
+include build.assets/etcd.mk
+
+.PHONY: test
+
+test: test-etcd
+	SPIFFE_TEST_ETCD=true SPIFFE_TEST_ETCD_CONFIG=$(SPIFFE_TEST_ETCD_CONFIG) go test -v -test.parallel=0 ./...
+
 # all goinstalls everything
 .PHONY: all
 all: install
@@ -52,3 +59,5 @@ buildbox-grpc:
       --grpc-gateway_out=logtostderr=true:. \
       --swagger_out=logtostderr=true:. \
       *.proto	
+
+

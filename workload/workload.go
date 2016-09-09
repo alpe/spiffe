@@ -81,23 +81,49 @@ type Authorities interface {
 	DeleteCertAuthority(ctx context.Context, id string) error
 }
 
-// TrustedRoot represents trusted root x509 certificate authority certificate
-type TrustedRoot struct {
+// TrustedRootBundle is a collection of trusted roots grouped together
+// lots of certs are grouped together
+type TrustedRootBundle struct {
+	ID    string
+	Certs []TrustedRootCert
+}
+
+// Check checks root bundle
+func (b *TrustedRootBundle) Check() error {
+	if b.ID == "" {
+		return trace.BadParameter("missing parameter ID")
+	}
+	if len(b.Certs) == 0 {
+		return trace.BadParameter("missing parameter Certs")
+	}
+	for _, c := range b.Certs {
+		if err := c.Check(); err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	return nil
+}
+
+// TrustedRootCert represents trusted root x509 certificate authority certificate
+type TrustedRootCert struct {
 	// ID is a unique certificate ID
 	ID string
+	// Filename is how this root will be stored on the filesystem,
+	// if omitted, will use ID as the filename
+	Filename string
 	// Cert is PEM-encoded trusted cert bytes
 	Cert []byte
 }
 
 // ParsedCertificate returns parsed certificate
-func (r *TrustedRoot) ParsedCertificate() (*x509.Certificate, error) {
+func (r *TrustedRootCert) ParsedCertificate() (*x509.Certificate, error) {
 	if len(r.Cert) == 0 {
 		return nil, trace.BadParameter("missing parameter Cert")
 	}
 	return ParseCertificatePEM(r.Cert)
 }
 
-func (r *TrustedRoot) Check() error {
+func (r *TrustedRootCert) Check() error {
 	if r.ID == "" {
 		return trace.BadParameter("missing parameter ID")
 	}
@@ -107,14 +133,14 @@ func (r *TrustedRoot) Check() error {
 	return nil
 }
 
-// TrustedRoots manages collection trusted root certificates
-type TrustedRoots interface {
-	// UpsertTrustedRoot updates or insert trusted root certificate
-	UpsertTrustedRoot(ctx context.Context, root TrustedRoot) error
+// TrustedRootBundles manages collection trusted root certificates
+type TrustedRootBundles interface {
+	// UpsertTrustedRootBundle updates or insert trusted root certificate bundle
+	UpsertTrustedRootBundle(ctx context.Context, bundle TrustedRootBundle) error
 	// GetTrustedRoot returns trusted root certificate by its ID
-	GetTrustedRoot(ctx context.Context, id string) (*TrustedRoot, error)
-	// DeleteTrustedRoot deletes TrustedRoot by its ID
-	DeleteTrustedRoot(ctx context.Context, id string) error
+	GetTrustedRootBundle(ctx context.Context, id string) (*TrustedRootBundle, error)
+	// DeleteTrustedRootBundle deletes TrustedRoot by its ID
+	DeleteTrustedRootBundle(ctx context.Context, id string) error
 }
 
 // ScopedID represents SPIFFE ID with attached
@@ -134,7 +160,7 @@ type Workload struct {
 	ID string
 	// Identities is a list of SPIFFE ids associated with this workload
 	Identities []ScopedID
-	// TrustedRootIDs is a list of IDs of trusted root certificates assigned
+	// TrustedRootIDs is a list of IDs of trusted root certificate bundles assigned
 	// to this workload. NodeCA will use this list to update trusted roots
 	// of SPIFFE-powered servers and clients
 	TrustedRootIDs []string
@@ -262,6 +288,8 @@ const (
 	CollectionWorkloads = "workloads"
 	// CollectionTrustedRoots is a collection with trusted root certificates
 	CollectionTrustedRoots = "roots"
+	// CollectionTrustedRootBundles is a collection with trusted root certificate bundles
+	CollectionTrustedRootBundles = "rootbundles"
 	// CollectionCertAuthorities is a collection with certificate
 	CollectionCertAuthorities = "authorities"
 	// CollectionPermissions controls collection with permissions

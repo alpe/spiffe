@@ -395,8 +395,8 @@ func (b *Backend) DeleteSignPermission(ctx context.Context, sp workload.SignPerm
 	return trace.Wrap(convertErr(err))
 }
 
-// UpsertTrustedRoot updates or insert trusted root certificate
-func (b *Backend) UpsertTrustedRoot(ctx context.Context, root workload.TrustedRoot) error {
+// UpsertTrustedRootBundle updates or insert trusted root certificate bundle
+func (b *Backend) UpsertTrustedRootBundle(ctx context.Context, root workload.TrustedRootBundle) error {
 	if err := root.Check(); err != nil {
 		return trace.Wrap(err)
 	}
@@ -411,7 +411,7 @@ func (b *Backend) UpsertTrustedRoot(ctx context.Context, root workload.TrustedRo
 	return nil
 }
 
-// GetTrustedRoot returns trusted root certificate by its ID
+// GetTrustedRootBundle returns trusted root certificate bundle by its ID
 func (b *Backend) GetTrustedRoot(ctx context.Context, id string) (*workload.TrustedRoot, error) {
 	if id == "" {
 		return nil, trace.BadParameter("missing parameter ID")
@@ -434,6 +434,17 @@ func (b *Backend) DeleteTrustedRoot(ctx context.Context, id string) error {
 	}
 	_, err := b.keys.Delete(ctx, b.key(rootsP, id), nil)
 	return trace.Wrap(convertErr(err))
+}
+
+func (b *Backend) GetWorkloadTrustedRoots(ctx context.Context, workloadID string) ([]workload.TrustedRoot, error) {
+	workload, err := b.GetWorkload(ctx, workloadID)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	re, err := b.keys.Get(ctx, b.key(rootsP), &etcd.GetOptions{Recursive: true})
+	if err = convertErr(err); err != nil {
+		return nil, trace.Wrap(err)
+	}
 }
 
 func (b *Backend) key(prefix string, keys ...string) string {

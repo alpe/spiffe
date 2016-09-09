@@ -9,8 +9,15 @@ include build.assets/etcd.mk
 
 .PHONY: test
 
-test: test-etcd
+test: test-etcd remove-temp-files
 	SPIFFE_TEST_ETCD=true SPIFFE_TEST_ETCD_CONFIG=$(SPIFFE_TEST_ETCD_CONFIG) go test -v -test.parallel=0 ./...
+
+test-package: test-etcd remove-temp-files
+	SPIFFE_TEST_ETCD=true SPIFFE_TEST_ETCD_CONFIG=$(SPIFFE_TEST_ETCD_CONFIG) go test -v ./$(p) -check.f=$(e)
+
+cover-package: test-etcd remove-temp-files
+	SPIFFE_TEST_ETCD=true SPIFFE_TEST_ETCD_CONFIG=$(SPIFFE_TEST_ETCD_CONFIG) go test -v ./$(p)  -coverprofile=/tmp/coverage.out
+	go tool cover -html=/tmp/coverage.out
 
 # all goinstalls everything
 .PHONY: all
@@ -61,3 +68,9 @@ buildbox-grpc:
       *.proto	
 
 
+# This is to clean up flymake_ stuff hanging around as a result of Emacs-Flymake
+.PHONY: remove-temp-files
+remove-temp-files:
+	@if [ $$USER != vagrant ] ; then \
+		find . -name flymake_* -delete ; \
+	fi

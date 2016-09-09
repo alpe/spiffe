@@ -74,3 +74,7 @@ func (s *ESuite) TestWorkloadsCRUD(c *C) {
 func (s *ESuite) TestEvents(c *C) {
 	s.suite.Events(c)
 }
+
+func (s *ESuite) TestCertAuthoritiesCRUD(c *C) {
+	s.suite.CertAuthoritiesCRUD(c)
+}

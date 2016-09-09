@@ -247,8 +247,8 @@ func (b *Backend) Subscribe(ctx context.Context, eventC chan *workload.WorkloadE
 		}()
 		for {
 			re, err = watcher.Next(ctx)
-			log.Infof("processWorkloadEvent(%v,%v)", re.Action, re.Node.Key)
 			if err == nil {
+				log.Infof("processWorkloadEvent(%v,%v)", re.Action, re.Node.Key)
 				processWorkloadEvent(ctx, workloadsKey, re, eventC)
 			}
 			if err != nil {

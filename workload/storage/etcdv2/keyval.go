@@ -51,14 +51,14 @@ func New(cfg Config) (*Backend, error) {
 	return &Backend{
 		client:        client,
 		keys:          etcd.NewKeysAPI(client),
-		baseKey:       cfg.Key,
+		baseKey:       strings.Split(cfg.Key, "/"),
 		backoffPeriod: cfg.BackoffPeriod}, nil
 }
 
 type Backend struct {
 	client        etcd.Client
 	keys          etcd.KeysAPI
-	baseKey       string
+	baseKey       []string
 	backoffPeriod time.Duration
 }
 
@@ -147,6 +147,7 @@ func (b *Backend) getWatchAtLatestIndex(ctx context.Context, key string) (etcd.W
 	if err == nil {
 		return b.keys.Watcher(key, &etcd.WatcherOptions{
 			AfterIndex: re.Node.ModifiedIndex,
+			Recursive:  true,
 		}), re, nil
 	}
 	if !trace.IsNotFound(err) {
@@ -163,6 +164,7 @@ func (b *Backend) getWatchAtLatestIndex(ctx context.Context, key string) (etcd.W
 	}
 	return b.keys.Watcher(key, &etcd.WatcherOptions{
 		AfterIndex: re.Node.ModifiedIndex,
+		Recursive:  true,
 	}), re, nil
 }
 
@@ -186,6 +188,7 @@ func unmarshal(data string, val interface{}) error {
 }
 
 func processWorkloadEvent(ctx context.Context, prefix string, re *etcd.Response, eventsC chan *workload.WorkloadEvent) {
+	log.Infof("processWorkloadEvent(actoin=%v key=%v)", re.Action, re.Node.Key)
 	// set, delete, update, create, compareAndSwap, compareAndDelete and expire.
 	if !strings.HasPrefix(re.Node.Key, prefix) {
 		log.Debugf("skipping non-workload event: %v", re.Node.Key)
@@ -199,7 +202,7 @@ func processWorkloadEvent(ctx context.Context, prefix string, re *etcd.Response,
 	var event *workload.WorkloadEvent
 	switch re.Action {
 	case "delete", "expire", "compareAndDelete":
-		event := &workload.WorkloadEvent{
+		event = &workload.WorkloadEvent{
 			ID:   workloadID,
 			Type: workload.EventWorkloadDeleted,
 		}
@@ -208,8 +211,9 @@ func processWorkloadEvent(ctx context.Context, prefix string, re *etcd.Response,
 		err := unmarshal(re.Node.Value, &w)
 		if err != nil {
 			log.Error(trace.DebugReport(err))
+			return
 		}
-		event := &workload.WorkloadEvent{
+		event = &workload.WorkloadEvent{
 			ID:       workloadID,
 			Type:     workload.EventWorkloadUpdated,
 			Workload: &w,
@@ -220,6 +224,7 @@ func processWorkloadEvent(ctx context.Context, prefix string, re *etcd.Response,
 	}
 	select {
 	case eventsC <- event:
+		log.Infof("sent event %#v", event)
 	case <-ctx.Done():
 		log.Infof("client is closing")
 	default:
@@ -229,13 +234,12 @@ func processWorkloadEvent(ctx context.Context, prefix string, re *etcd.Response,
 
 // Subscribe returns a stream of events associated with given workload IDs
 // if you wish to cancel the stream, use ctx.Close
-func (b *Backend) Subscribe(ctx context.Context) (<-chan *workload.WorkloadEvent, error) {
+func (b *Backend) Subscribe(ctx context.Context, eventC chan *workload.WorkloadEvent) error {
 	workloadsKey := b.key(workloadsP)
 	watcher, re, err := b.getWatchAtLatestIndex(ctx, workloadsKey)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return trace.Wrap(err)
 	}
-	eventC := make(chan *workload.WorkloadEvent)
 	go func() {
 		ticker := time.NewTicker(b.backoffPeriod)
 		defer ticker.Stop()
@@ -283,7 +287,7 @@ func (b *Backend) Subscribe(ctx context.Context) (<-chan *workload.WorkloadEvent
 			}
 		}
 	}()
-	return eventC, nil
+	return nil
 }
 
 // UpsertPermission updates or inserts permission for actor identified by SPIFFE ID
@@ -433,7 +437,7 @@ func (b *Backend) DeleteTrustedRoot(ctx context.Context, id string) error {
 
 func (b *Backend) key(prefix string, keys ...string) string {
 	key := make([]string, 0, len(keys)+2)
-	key = append(key, b.baseKey)
+	key = append(key, b.baseKey...)
 	key = append(key, prefix)
 	key = append(key, keys...)
 	for i := range key {

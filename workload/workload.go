@@ -183,7 +183,9 @@ type Workloads interface {
 	GetWorkload(ctx context.Context, ID string) (*Workload, error)
 	// Subscribe returns a stream of events associated with given workload IDs
 	// if you wish to cancel the stream, use ctx.Close
-	Subscribe(ctx context.Context) (<-chan *WorkloadEvent, error)
+	// eventC will be closed by Subscribe function on errors or
+	// cancelled subscribe
+	Subscribe(ctx context.Context, eventC chan *WorkloadEvent) error
 }
 
 // Signer is a workload-aware certificate signer.

@@ -40,6 +40,7 @@ var _ = Suite(&ESuite{})
 
 func (s *ESuite) SetUpTest(c *C) {
 	log.SetOutput(os.Stderr)
+	log.SetLevel(log.DebugLevel)
 
 	testETCD := os.Getenv(spiffe.TestETCD)
 
@@ -68,4 +69,8 @@ func (s *ESuite) TearDownTest(c *C) {
 
 func (s *ESuite) TestWorkloadsCRUD(c *C) {
 	s.suite.WorkloadsCRUD(c)
+}
+
+func (s *ESuite) TestEvents(c *C) {
+	s.suite.Events(c)
 }

@@ -23,6 +23,7 @@ import (
 	"github.com/spiffe/spiffe"
 	"github.com/spiffe/spiffe/workload"
 
+	"github.com/gravitational/trace"
 	"github.com/jonboulle/clockwork"
 	"golang.org/x/net/context"
 	. "gopkg.in/check.v1"
@@ -31,7 +32,7 @@ import (
 var (
 	now     = time.Date(2015, 11, 16, 1, 2, 3, 0, time.UTC)
 	aliceID = spiffe.MustParseID("urn:spiffe:example.com:user:alice")
-	bobID   = spiffe.MustParseID("urn:spiffe:example.com:user:alice")
+	bobID   = spiffe.MustParseID("urn:spiffe:example.com:user:bob")
 )
 
 type WorkloadSuite struct {
@@ -40,7 +41,7 @@ type WorkloadSuite struct {
 }
 
 func (s *WorkloadSuite) WorkloadsCRUD(c *C) {
-	err := s.C.UpsertWorkload(context.TODO(), workload.Workload{
+	w := workload.Workload{
 		ID: "dev",
 		Identities: []workload.ScopedID{
 			{
@@ -50,6 +51,63 @@ func (s *WorkloadSuite) WorkloadsCRUD(c *C) {
 			},
 		},
 		TrustedRootIDs: []string{"example.com"},
-	})
+	}
+	ctx := context.TODO()
+	err := s.C.UpsertWorkload(ctx, w)
 	c.Assert(err, IsNil)
+
+	out, err := s.C.GetWorkload(ctx, w.ID)
+	c.Assert(err, IsNil)
+	c.Assert(out, DeepEquals, &w)
+
+	err = s.C.DeleteWorkload(ctx, w.ID)
+	c.Assert(err, IsNil)
+}
+
+func (s *WorkloadSuite) Events(c *C) {
+	ctx := context.TODO()
+	eventsC := make(chan *workload.WorkloadEvent, 100)
+	err := s.C.Subscribe(ctx, eventsC)
+
+	c.Assert(err, IsNil)
+	w := workload.Workload{
+		ID: "dev",
+		Identities: []workload.ScopedID{
+			{
+				ID:        aliceID,
+				MaxTTL:    time.Second,
+				IsDefault: true,
+			},
+		},
+		TrustedRootIDs: []string{"example.com"},
+	}
+	err = s.C.UpsertWorkload(ctx, w)
+	c.Assert(err, IsNil)
+
+	select {
+	case e := <-eventsC:
+		c.Assert(e, DeepEquals, &workload.WorkloadEvent{
+			ID:       w.ID,
+			Type:     workload.EventWorkloadUpdated,
+			Workload: &w,
+		})
+	case <-time.After(time.Second):
+		c.Fatal("timeout waiting for workload update")
+	}
+
+	err = s.C.DeleteWorkload(ctx, w.ID)
+	c.Assert(err, IsNil)
+
+	_, err = s.C.GetWorkload(ctx, w.ID)
+	c.Assert(trace.IsNotFound(err), Equals, true)
+
+	select {
+	case e := <-eventsC:
+		c.Assert(e, DeepEquals, &workload.WorkloadEvent{
+			ID:   w.ID,
+			Type: workload.EventWorkloadDeleted,
+		})
+	case <-time.After(time.Second):
+		c.Fatal("timeout waiting for workload update")
+	}
 }

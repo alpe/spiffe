@@ -86,3 +86,7 @@ func (s *ESuite) TestTrustedRootBundlesCRUD(c *C) {
 func (s *ESuite) TestPermissionsCRUD(c *C) {
 	s.suite.PermissionsCRUD(c)
 }
+
+func (s *ESuite) TestSignPermissionsCRUD(c *C) {
+	s.suite.SignPermissionsCRUD(c)
+}

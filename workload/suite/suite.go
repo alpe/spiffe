@@ -182,12 +182,77 @@ func (s *WorkloadSuite) PermissionsCRUD(c *C) {
 		Collection: workload.CollectionCertAuthorities,
 	}
 
-	err := s.C.UpsertPermission(ctx, p1)
+	out, err := s.C.GetPermission(ctx, p1)
+	c.Assert(trace.IsNotFound(err), Equals, true, Commentf("%T", err))
+
+	err = s.C.UpsertPermission(ctx, p1)
 	c.Assert(err, IsNil)
 
-	out, err := s.C.GetPermission(ctx, p1)
+	out, err = s.C.GetPermission(ctx, p1)
 	c.Assert(err, IsNil)
 	c.Assert(out, DeepEquals, &p1)
+
+	p2 := workload.Permission{
+		ID:           aliceID,
+		Action:       workload.ActionUpdate,
+		Collection:   workload.CollectionCertAuthorities,
+		CollectionID: "2",
+	}
+	err = s.C.UpsertPermission(ctx, p2)
+	c.Assert(err, IsNil)
+
+	out, err = s.C.GetPermission(ctx, p2)
+	c.Assert(out, DeepEquals, &p2)
+
+	err = s.C.DeletePermission(ctx, p1)
+	c.Assert(err, IsNil)
+	_, err = s.C.GetPermission(ctx, p1)
+	c.Assert(trace.IsNotFound(err), Equals, true, Commentf("%T"))
+
+	err = s.C.DeletePermission(ctx, p2)
+	c.Assert(err, IsNil)
+	_, err = s.C.GetPermission(ctx, p2)
+	c.Assert(trace.IsNotFound(err), Equals, true, Commentf("%T"))
+}
+
+func (s *WorkloadSuite) SignPermissionsCRUD(c *C) {
+	ctx := context.TODO()
+	s1 := workload.SignPermission{
+		ID:              bobID,
+		CertAuthorityID: "example.com",
+		Org:             "a.example.com",
+	}
+
+	out, err := s.C.GetSignPermission(ctx, s1)
+	c.Assert(trace.IsNotFound(err), Equals, true, Commentf("%T", err))
+
+	err = s.C.UpsertSignPermission(ctx, s1)
+	c.Assert(err, IsNil)
+
+	out, err = s.C.GetSignPermission(ctx, s1)
+	c.Assert(err, IsNil)
+	c.Assert(out, DeepEquals, &s1)
+
+	s2 := workload.SignPermission{
+		ID:              aliceID,
+		CertAuthorityID: "example.com",
+		SignID:          &aliceID,
+	}
+	err = s.C.UpsertSignPermission(ctx, s2)
+	c.Assert(err, IsNil)
+
+	out, err = s.C.GetSignPermission(ctx, s2)
+	c.Assert(out, DeepEquals, &s2)
+
+	err = s.C.DeleteSignPermission(ctx, s1)
+	c.Assert(err, IsNil)
+	_, err = s.C.GetSignPermission(ctx, s1)
+	c.Assert(trace.IsNotFound(err), Equals, true, Commentf("%T"))
+
+	err = s.C.DeleteSignPermission(ctx, s2)
+	c.Assert(err, IsNil)
+	_, err = s.C.GetSignPermission(ctx, s2)
+	c.Assert(trace.IsNotFound(err), Equals, true, Commentf("%T"))
 }
 
 const (

@@ -303,7 +303,7 @@ type SignPermission struct {
 	CertAuthorityID string
 	// Org if present, limits generating CSRs to get certificates for paricular org name
 	Org string
-	// SignID if present, limits using signing for particular SpiffeID
+	// SignIDs if present, limits using signing for particular SPIFFE ID
 	SignID *spiffe.ID
 }
 
@@ -314,7 +314,7 @@ func (p *SignPermission) Check() error {
 	}
 	if p.SignID != nil {
 		if err := p.SignID.Check(); err != nil {
-			return trace.BadParameter("missing parameter IDs")
+			return trace.Wrap(err, "error verifying %v", p.SignID)
 		}
 	}
 	return nil

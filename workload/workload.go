@@ -226,7 +226,7 @@ type Workloads interface {
 // * Fetch CertAuthority with ID `example.com`
 // * Use it to process CSR with TTL <= MaxTTL in the ScopedID of the workload
 type Signer interface {
-	ProcessCSR(ctx context.Context, req x509.CertificateRequest) (x509.Certificate, error)
+	ProcessCSR(ctx context.Context, req []byte) ([]byte, error)
 }
 
 // Permissions controls collection with permissions

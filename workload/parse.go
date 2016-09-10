@@ -11,6 +11,19 @@ import (
 	"github.com/gravitational/trace"
 )
 
+// ParseCertificateRequestPEM parses PEM-encoded certificate signing request
+func ParseCertificateRequestPEM(bytes []byte) (*x509.CertificateRequest, error) {
+	block, _ := pem.Decode(bytes)
+	if block == nil {
+		return nil, trace.BadParameter("expected PEM-encoded block")
+	}
+	csr, err := x509.ParseCertificateRequest(block.Bytes)
+	if err != nil {
+		return nil, trace.BadParameter(err.Error())
+	}
+	return csr, nil
+}
+
 // ParseCertificatePEM parses PEM-encoded certificate
 func ParseCertificatePEM(bytes []byte) (*x509.Certificate, error) {
 	block, _ := pem.Decode(bytes)

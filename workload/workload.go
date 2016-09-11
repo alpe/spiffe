@@ -214,6 +214,19 @@ type Workloads interface {
 	Subscribe(ctx context.Context, eventC chan *WorkloadEvent) error
 }
 
+// CertificateRequest is a request to sign particular certificate
+// authority
+type CertificateRequest struct {
+	// CertAuthorityID is the ID of the certificate authority that
+	// should sign the certificate
+	CertAuthorityID string
+	// TTL is the desired TTL of the certificate. May be rejected if permissions
+	// do not allow the requiured TTL
+	TTL time.Duration
+	// CSR is a certificate signing request PEM bytes
+	CSR []byte
+}
+
 // Signer is a workload-aware certificate signer.
 // For example to generate CSR for SPIFFE ID 'urn:spiffe:example.com:opaque:id'
 // and workload 'dev', NodeCA will produce CSR with the following fields set:
@@ -226,7 +239,7 @@ type Workloads interface {
 // * Fetch CertAuthority with ID `example.com`
 // * Use it to process CSR with TTL <= MaxTTL in the ScopedID of the workload
 type Signer interface {
-	ProcessCSR(ctx context.Context, req []byte) ([]byte, error)
+	ProcessCertificateRequest(ctx context.Context, req CertificateRequest) ([]byte, error)
 }
 
 // Permissions controls collection with permissions
@@ -305,6 +318,8 @@ type SignPermission struct {
 	Org string
 	// SignIDs if present, limits using signing for particular SPIFFE ID
 	SignID *spiffe.ID
+	// MaxTTL controls maximum TTL of the issued certificate
+	MaxTTL time.Duration
 }
 
 // Check checks whether sign permission parameters are valid

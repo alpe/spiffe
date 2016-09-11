@@ -304,6 +304,7 @@ func (s *WorkloadSuite) Signer(c *C) {
 	ids, err := spiffe.IDsFromCertificate(*cert)
 	c.Assert(err, IsNil)
 	c.Assert(ids, DeepEquals, []spiffe.ID{aliceID})
+	c.Assert(cert.NotAfter, DeepEquals, s.Clock.Now().Add(time.Hour))
 }
 
 const (

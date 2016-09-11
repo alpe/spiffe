@@ -227,6 +227,20 @@ type CertificateRequest struct {
 	CSR []byte
 }
 
+// Check checks parameters for missing parmaeters
+func (c *CertificateRequest) Check() error {
+	if c.CertAuthorityID == "" {
+		return trace.BadParameter("missing parameter CertAuthorityID")
+	}
+	if c.TTL == 0 {
+		return trace.BadParameter("missing parameter TTL")
+	}
+	if len(c.CSR) == 0 {
+		return trace.BadParameter("missing parameter CSR")
+	}
+	return nil
+}
+
 // Signer is a workload-aware certificate signer.
 // For example to generate CSR for SPIFFE ID 'urn:spiffe:example.com:opaque:id'
 // and workload 'dev', NodeCA will produce CSR with the following fields set:
@@ -341,4 +355,10 @@ type Collections interface {
 	TrustedRootBundles
 	Authorities
 	Workloads
+}
+
+// Service is a full implementaion of workload service
+type Service interface {
+	Collections
+	Signer
 }

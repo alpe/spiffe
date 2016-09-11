@@ -57,7 +57,7 @@ func (i *ID) X509Extension() (*pkix.Extension, error) {
 }
 
 // IDsFromCertificate returns a list of IDs extracted from X509 extensions
-func IDsFromCertificate(cert x509.Certificate) ([]ID, error) {
+func IDsFromCertificate(cert *x509.Certificate) ([]ID, error) {
 	var out []ID
 	var err error
 	for _, e := range cert.Extensions {

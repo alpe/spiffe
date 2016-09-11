@@ -20,6 +20,7 @@ package workload
 import (
 	"crypto"
 	"crypto/x509"
+	"fmt"
 	"time"
 
 	"github.com/spiffe/spiffe"
@@ -256,18 +257,23 @@ type Signer interface {
 	ProcessCertificateRequest(ctx context.Context, req CertificateRequest) ([]byte, error)
 }
 
-// Permissions controls collection with permissions
-type Permissions interface {
-	// UpsertPermission updates or inserts permission for actor identified by SPIFFE ID
-	UpsertPermission(ctx context.Context, p Permission) error
+// PermissionsReader implements read-only access to permissions collection
+type PermissionsReader interface {
+	// GetSignPermission return permission for actor identified by SPIFFE ID
+	GetSignPermission(ctx context.Context, sp SignPermission) (*SignPermission, error)
 	// GetPermission returns permission for actor identified by SPIFFE ID
 	GetPermission(ctx context.Context, p Permission) (*Permission, error)
+}
+
+// Permissions controls collection with permissions
+type Permissions interface {
+	PermissionsReader
+	// UpsertPermission updates or inserts permission for actor identified by SPIFFE ID
+	UpsertPermission(ctx context.Context, p Permission) error
 	// DeletePermission deletes permission
 	DeletePermission(ctx context.Context, p Permission) error
 	// UpsertSignPermission updates or inserts permission for actor identified by SPIFFE ID
 	UpsertSignPermission(ctx context.Context, p SignPermission) error
-	// GetSignPermission return permission for actor identified by SPIFFE ID
-	GetSignPermission(ctx context.Context, sp SignPermission) (*SignPermission, error)
 	// DeleteSignPermission deletes sign permission
 	DeleteSignPermission(ctx context.Context, sp SignPermission) error
 }
@@ -283,6 +289,11 @@ type Permission struct {
 	Collection string
 	// CollectionID, if specified limits the scope
 	CollectionID string
+}
+
+// String returns human-readable permission
+func (p Permission) String() string {
+	return fmt.Sprintf("%v has no permission to %v on %v %v", p.ID, p.Action, p.Collection, p.CollectionID)
 }
 
 // Check checks whether permission is valid
@@ -334,6 +345,15 @@ type SignPermission struct {
 	SignID *spiffe.ID
 	// MaxTTL controls maximum TTL of the issued certificate
 	MaxTTL time.Duration
+}
+
+// String returns human-readable permission
+func (s SignPermission) String() string {
+	id := fmt.Sprintf("org %v ", s.Org)
+	if s.SignID == nil {
+		id += fmt.Sprintf("%v SPIFFE id %v ", id, s.SignID)
+	}
+	return fmt.Sprintf("%v has no permission to sign %v by %v for %v", s.ID, id, s.CertAuthorityID, s.MaxTTL)
 }
 
 // Check checks whether sign permission parameters are valid

@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/spiffe/spiffe"
+	"github.com/spiffe/spiffe/workload"
 	"github.com/spiffe/spiffe/workload/suite"
 
 	log "github.com/Sirupsen/logrus"
@@ -55,6 +56,10 @@ func (s *ESuite) SetUpTest(c *C) {
 
 	s.suite.C = s.backend.Backend
 	s.suite.Clock = s.backend.Clock
+	s.suite.S = &workload.CertSigner{
+		Collections: s.backend.Backend,
+		Clock:       s.suite.Clock,
+	}
 }
 
 func (s *ESuite) TearDownTest(c *C) {
@@ -89,4 +94,8 @@ func (s *ESuite) TestPermissionsCRUD(c *C) {
 
 func (s *ESuite) TestSignPermissionsCRUD(c *C) {
 	s.suite.SignPermissionsCRUD(c)
+}
+
+func (s *ESuite) TestSigner(c *C) {
+	s.suite.Signer(c)
 }

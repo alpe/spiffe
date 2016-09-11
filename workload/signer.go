@@ -49,7 +49,7 @@ func (c *CertSigner) ProcessCertificateRequest(ctx context.Context, req Certific
 	}
 
 	template := &x509.Certificate{
-		Extensions:            csr.Extensions,
+		ExtraExtensions:       csr.Extensions,
 		SerialNumber:          serialNumber,
 		Subject:               csr.Subject,
 		NotBefore:             notBefore,

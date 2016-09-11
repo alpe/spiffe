@@ -18,6 +18,10 @@ limitations under the License.
 package suite
 
 import (
+	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"time"
 
 	"github.com/spiffe/spiffe"
@@ -37,6 +41,7 @@ var (
 
 type WorkloadSuite struct {
 	C     workload.Collections
+	S     workload.Signer
 	Clock clockwork.FakeClock
 }
 
@@ -253,6 +258,52 @@ func (s *WorkloadSuite) SignPermissionsCRUD(c *C) {
 	c.Assert(err, IsNil)
 	_, err = s.C.GetSignPermission(ctx, s2)
 	c.Assert(trace.IsNotFound(err), Equals, true, Commentf("%T"))
+}
+
+func (s *WorkloadSuite) Signer(c *C) {
+	ctx := context.TODO()
+	ca := workload.CertAuthority{
+		ID:         "example.com",
+		Cert:       []byte(certAuthorityCertPEM),
+		PrivateKey: []byte(certAuthorityKeyPEM),
+	}
+	err := s.C.UpsertCertAuthority(ctx, ca)
+	c.Assert(err, IsNil)
+
+	signer, err := workload.ParsePrivateKeyPEM([]byte(keyPEM))
+	c.Assert(err, IsNil)
+	extension, err := aliceID.X509Extension()
+	c.Assert(err, IsNil)
+
+	csr := &x509.CertificateRequest{
+		ExtraExtensions: []pkix.Extension{*extension},
+		Subject: pkix.Name{
+			Organization: []string{"Acme Co"},
+			CommonName:   "*.example.com",
+		},
+	}
+
+	csrBytes, err := x509.CreateCertificateRequest(rand.Reader, csr, signer)
+	csrPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE REQUEST", Bytes: csrBytes})
+
+	certBytes, err := s.S.ProcessCertificateRequest(ctx, workload.CertificateRequest{
+		CertAuthorityID: ca.ID,
+		CSR:             csrPEM,
+		TTL:             time.Hour,
+	})
+	c.Assert(err, IsNil)
+
+	cert, err := workload.ParseCertificatePEM(certBytes)
+	c.Assert(err, IsNil)
+	c.Assert(cert, NotNil)
+
+	c.Assert(cert.IsCA, Equals, false)
+	c.Assert(cert.Subject.CommonName, DeepEquals, csr.Subject.CommonName)
+	c.Assert(cert.Subject.Organization, DeepEquals, csr.Subject.Organization)
+
+	ids, err := spiffe.IDsFromCertificate(*cert)
+	c.Assert(err, IsNil)
+	c.Assert(ids, DeepEquals, []spiffe.ID{aliceID})
 }
 
 const (

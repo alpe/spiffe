@@ -242,6 +242,12 @@ func (c *CertificateRequest) Check() error {
 	return nil
 }
 
+// CertificateResponse is returned by Signer
+type CertificateResponse struct {
+	// Cert is a PEM byte array with signed certificate
+	Cert []byte
+}
+
 // Signer is a workload-aware certificate signer.
 // For example to generate CSR for SPIFFE ID 'urn:spiffe:example.com:opaque:id'
 // and workload 'dev', NodeCA will produce CSR with the following fields set:
@@ -254,7 +260,8 @@ func (c *CertificateRequest) Check() error {
 // * Fetch CertAuthority with ID `example.com`
 // * Use it to process CSR with TTL <= MaxTTL in the ScopedID of the workload
 type Signer interface {
-	ProcessCertificateRequest(ctx context.Context, req CertificateRequest) ([]byte, error)
+	// ProcessCertificateRequest process x509 CSR to sign with particular TTL and specifies which CertificateAuthority to use
+	ProcessCertificateRequest(ctx context.Context, req CertificateRequest) (*CertificateResponse, error)
 }
 
 // PermissionsReader implements read-only access to permissions collection

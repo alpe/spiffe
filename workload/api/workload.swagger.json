@@ -15,14 +15,14 @@
     "application/json"
   ],
   "paths": {
-    "/v1/example/echo": {
+    "/v1/workload/sign": {
       "post": {
-        "operationId": "Echo",
+        "operationId": "ProcessCertificateRequest",
         "responses": {
           "200": {
             "description": "",
             "schema": {
-              "$ref": "#/definitions/workloadStringMessage"
+              "$ref": "#/definitions/apiCertificateResponse"
             }
           }
         },
@@ -32,23 +32,40 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/workloadStringMessage"
+              "$ref": "#/definitions/apiCertificateRequest"
             }
           }
         ],
         "tags": [
-          "YourService"
+          "Service"
         ]
       }
     }
   },
   "definitions": {
-    "workloadStringMessage": {
+    "apiCertificateRequest": {
       "type": "object",
       "properties": {
-        "value": {
+        "CSR": {
+          "type": "string",
+          "format": "byte"
+        },
+        "CertAuthorityID": {
           "type": "string",
           "format": "string"
+        },
+        "TTL": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "apiCertificateResponse": {
+      "type": "object",
+      "properties": {
+        "Cert": {
+          "type": "string",
+          "format": "byte"
         }
       }
     }

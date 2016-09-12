@@ -34,7 +34,7 @@ type CertSigner struct {
 	clockwork.Clock
 }
 
-func (c *CertSigner) ProcessCertificateRequest(ctx context.Context, req CertificateRequest) ([]byte, error) {
+func (c *CertSigner) ProcessCertificateRequest(ctx context.Context, req CertificateRequest) (*CertificateResponse, error) {
 	csr, err := ParseCertificateRequestPEM(req.CSR)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -80,5 +80,7 @@ func (c *CertSigner) ProcessCertificateRequest(ctx context.Context, req Certific
 		return nil, trace.Wrap(err)
 	}
 
-	return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certBytes}), nil
+	return &CertificateResponse{
+		Cert: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certBytes}),
+	}, nil
 }

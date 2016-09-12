@@ -3,7 +3,7 @@ GOGO_PROTO_TAG ?= v0.3
 GRPC_GATEWAY_TAG ?= v1.1.0
 BUILDBOX_TAG := spifee-buildbox:0.0.1
 PLATFORM := linux-x86_64
-GRPC_DIRS := workload/workloadpb
+GRPC_DIRS := workload/api
 
 include build.assets/etcd.mk
 

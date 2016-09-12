@@ -286,14 +286,14 @@ func (s *WorkloadSuite) Signer(c *C) {
 	csrBytes, err := x509.CreateCertificateRequest(rand.Reader, csr, signer)
 	csrPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE REQUEST", Bytes: csrBytes})
 
-	certBytes, err := s.S.ProcessCertificateRequest(ctx, workload.CertificateRequest{
+	re, err := s.S.ProcessCertificateRequest(ctx, workload.CertificateRequest{
 		CertAuthorityID: ca.ID,
 		CSR:             csrPEM,
 		TTL:             time.Hour,
 	})
 	c.Assert(err, IsNil)
 
-	cert, err := workload.ParseCertificatePEM(certBytes)
+	cert, err := workload.ParseCertificatePEM(re.Cert)
 	c.Assert(err, IsNil)
 	c.Assert(cert, NotNil)
 
@@ -301,7 +301,7 @@ func (s *WorkloadSuite) Signer(c *C) {
 	c.Assert(cert.Subject.CommonName, DeepEquals, csr.Subject.CommonName)
 	c.Assert(cert.Subject.Organization, DeepEquals, csr.Subject.Organization)
 
-	ids, err := spiffe.IDsFromCertificate(*cert)
+	ids, err := spiffe.IDsFromCertificate(cert)
 	c.Assert(err, IsNil)
 	c.Assert(ids, DeepEquals, []spiffe.ID{aliceID})
 	c.Assert(cert.NotAfter, DeepEquals, s.Clock.Now().Add(time.Hour))

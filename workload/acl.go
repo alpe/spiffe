@@ -27,7 +27,7 @@ type ACL struct {
 	Service Service
 }
 
-func (a *ACL) ProcessCertificateRequest(ctx context.Context, req CertificateRequest) ([]byte, error) {
+func (a *ACL) ProcessCertificateRequest(ctx context.Context, req CertificateRequest) (*CertificateResponse, error) {
 	if err := req.Check(); err != nil {
 		return nil, trace.Wrap(err)
 	}

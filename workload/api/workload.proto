@@ -1,0 +1,23 @@
+syntax = "proto3";
+package api;
+
+import "github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis/google/api/annotations.proto";
+
+message CertificateRequest {
+  string CertAuthorityID = 1;
+  int64 TTL = 2;
+  bytes CSR = 3;
+}
+
+message CertificateResponse {
+  bytes Cert = 1;
+}
+
+service Service {
+  rpc ProcessCertificateRequest(CertificateRequest) returns (CertificateResponse) {
+    option (google.api.http) = {
+      post: "/v1/workload/sign"
+      body: "*"
+    };
+  }
+}

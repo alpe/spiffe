@@ -34,9 +34,9 @@ import (
 )
 
 var (
-	now     = time.Date(2015, 11, 16, 1, 2, 3, 0, time.UTC)
-	aliceID = spiffe.MustParseID("urn:spiffe:example.com:user:alice")
-	bobID   = spiffe.MustParseID("urn:spiffe:example.com:user:bob")
+	Now     = time.Date(2015, 11, 16, 1, 2, 3, 0, time.UTC)
+	AliceID = spiffe.MustParseID("urn:spiffe:example.com:user:alice")
+	BobID   = spiffe.MustParseID("urn:spiffe:example.com:user:bob")
 )
 
 type WorkloadSuite struct {
@@ -50,7 +50,7 @@ func (s *WorkloadSuite) WorkloadsCRUD(c *C) {
 		ID: "dev",
 		Identities: []workload.ScopedID{
 			{
-				ID:        aliceID,
+				ID:        AliceID,
 				MaxTTL:    time.Second,
 				IsDefault: true,
 			},
@@ -79,7 +79,7 @@ func (s *WorkloadSuite) Events(c *C) {
 		ID: "dev",
 		Identities: []workload.ScopedID{
 			{
-				ID:        aliceID,
+				ID:        AliceID,
 				MaxTTL:    time.Second,
 				IsDefault: true,
 			},
@@ -130,8 +130,8 @@ func (s *WorkloadSuite) CertAuthoritiesCRUD(c *C) {
 	ctx := context.TODO()
 	ca := workload.CertAuthority{
 		ID:         "example.com",
-		Cert:       []byte(certAuthorityCertPEM),
-		PrivateKey: []byte(certAuthorityKeyPEM),
+		Cert:       []byte(CertAuthorityCertPEM),
+		PrivateKey: []byte(CertAuthorityKeyPEM),
 	}
 	err := s.C.UpsertCertAuthority(ctx, ca)
 	c.Assert(err, IsNil)
@@ -153,13 +153,13 @@ func (s *WorkloadSuite) TrustedRootBundlesCRUD(c *C) {
 		ID: "prod",
 		Certs: []workload.TrustedRootCert{{
 			ID:   "example.com",
-			Cert: []byte(certAuthorityCertPEM),
+			Cert: []byte(CertAuthorityCertPEM),
 		}},
 	}
 	for i := 0; i < 600; i++ {
 		bundle.Certs = append(bundle.Certs, workload.TrustedRootCert{
 			ID:   "example.com",
-			Cert: []byte(certAuthorityCertPEM),
+			Cert: []byte(CertAuthorityCertPEM),
 		})
 	}
 	err := s.C.CreateTrustedRootBundle(ctx, bundle)
@@ -182,7 +182,7 @@ func (s *WorkloadSuite) TrustedRootBundlesCRUD(c *C) {
 func (s *WorkloadSuite) PermissionsCRUD(c *C) {
 	ctx := context.TODO()
 	p1 := workload.Permission{
-		ID:         bobID,
+		ID:         BobID,
 		Action:     workload.ActionCreate,
 		Collection: workload.CollectionCertAuthorities,
 	}
@@ -198,8 +198,8 @@ func (s *WorkloadSuite) PermissionsCRUD(c *C) {
 	c.Assert(out, DeepEquals, &p1)
 
 	p2 := workload.Permission{
-		ID:           aliceID,
-		Action:       workload.ActionUpdate,
+		ID:           AliceID,
+		Action:       workload.ActionUpsert,
 		Collection:   workload.CollectionCertAuthorities,
 		CollectionID: "2",
 	}
@@ -223,7 +223,7 @@ func (s *WorkloadSuite) PermissionsCRUD(c *C) {
 func (s *WorkloadSuite) SignPermissionsCRUD(c *C) {
 	ctx := context.TODO()
 	s1 := workload.SignPermission{
-		ID:              bobID,
+		ID:              BobID,
 		CertAuthorityID: "example.com",
 		Org:             "a.example.com",
 	}
@@ -239,9 +239,9 @@ func (s *WorkloadSuite) SignPermissionsCRUD(c *C) {
 	c.Assert(out, DeepEquals, &s1)
 
 	s2 := workload.SignPermission{
-		ID:              aliceID,
+		ID:              AliceID,
 		CertAuthorityID: "example.com",
-		SignID:          &aliceID,
+		SignID:          &AliceID,
 	}
 	err = s.C.UpsertSignPermission(ctx, s2)
 	c.Assert(err, IsNil)
@@ -264,15 +264,15 @@ func (s *WorkloadSuite) Signer(c *C) {
 	ctx := context.TODO()
 	ca := workload.CertAuthority{
 		ID:         "example.com",
-		Cert:       []byte(certAuthorityCertPEM),
-		PrivateKey: []byte(certAuthorityKeyPEM),
+		Cert:       []byte(CertAuthorityCertPEM),
+		PrivateKey: []byte(CertAuthorityKeyPEM),
 	}
 	err := s.C.UpsertCertAuthority(ctx, ca)
 	c.Assert(err, IsNil)
 
-	signer, err := workload.ParsePrivateKeyPEM([]byte(keyPEM))
+	signer, err := workload.ParsePrivateKeyPEM([]byte(KeyPEM))
 	c.Assert(err, IsNil)
-	extension, err := aliceID.X509Extension()
+	extension, err := AliceID.X509Extension()
 	c.Assert(err, IsNil)
 
 	csr := &x509.CertificateRequest{
@@ -303,19 +303,19 @@ func (s *WorkloadSuite) Signer(c *C) {
 
 	ids, err := spiffe.IDsFromCertificate(cert)
 	c.Assert(err, IsNil)
-	c.Assert(ids, DeepEquals, []spiffe.ID{aliceID})
+	c.Assert(ids, DeepEquals, []spiffe.ID{AliceID})
 	c.Assert(cert.NotAfter, DeepEquals, s.Clock.Now().Add(time.Hour))
 }
 
 const (
-	certAuthorityKeyPEM = `-----BEGIN EC PRIVATE KEY-----
+	CertAuthorityKeyPEM = `-----BEGIN EC PRIVATE KEY-----
 MIGkAgEBBDB3SWxmlpEgX0S2LyOFc453q1Ah81wyFgScK1kHHFxPZIkYToAoavy3
 93BF+Vh42kGgBwYFK4EEACKhZANiAAQ9zD7zchrwUchaOKLCqOaMfbF9lOAghTDh
 c7fG+dzfqyAensEYv2kCwjChvkOSY98ICP6cI7uAxRa/jDEleH3jUWSW+4Zhjlr+
 Sph6klSwp6OKAV7ZY1dD2hiPez8yOgo=
 -----END EC PRIVATE KEY-----`
 
-	certAuthorityCertPEM = `-----BEGIN CERTIFICATE-----
+	CertAuthorityCertPEM = `-----BEGIN CERTIFICATE-----
 MIIC3zCCAmSgAwIBAgIUarbZ9SSSj5Dxf5uVGYpKOWMYmxgwCgYIKoZIzj0EAwMw
 gawxCzAJBgNVBAYTAlVTMRMwEQYDVQQIEwpDYWxpZm9ybmlhMRYwFAYDVQQHEw1T
 YW4gRnJhbmNpc2NvMSowKAYDVQQKEyFIb25lc3QgQWNobWVkJ3MgVXNlZCBDZXJ0
@@ -334,7 +334,7 @@ KoZIzj0EAwMDaQAwZgIxAM1olS0u60r//NCIcynnoXSjHi4IM/IO2YHJGtskikmC
 xNrpWfzTahVFvuGne7dNcR+uZQ==
 -----END CERTIFICATE-----`
 
-	keyPEM = `-----BEGIN EC PRIVATE KEY-----
+	KeyPEM = `-----BEGIN EC PRIVATE KEY-----
 MIGkAgEBBDAjToUX9qd4FxyQN51ZYHTqQQAMEJn7FGpwFF6KuH54dL1Bvx+HDHB5
 b47UOMP6zAKgBwYFK4EEACKhZANiAARm+MJe+yEclPjJVs6QBfjMiW3xpArvOE/p
 vA3hmMfkoEopFRen0K7KCZNNDFyTbsn5Ven93m+6UBYm11imhzmBdqnmB9IzVrRc

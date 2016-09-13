@@ -29,7 +29,17 @@ import (
 
 // NewAuthenticator returns new authentticator based on TLS authentication information
 // and SPIFFE ID that should be provided in the certificate
-func NewAuthenticator(ctx context.Context, permissions workload.PermissionsReader) (*Authenticator, error) {
+func NewAuthenticator(permissions workload.PermissionsReader) (*Authenticator, error) {
+	return &Authenticator{
+		P: permissions,
+	}, nil
+}
+
+type Authenticator struct {
+	P workload.PermissionsReader
+}
+
+func (a *Authenticator) getID(ctx context.Context) (*spiffe.ID, error) {
 	p, ok := peer.FromContext(ctx)
 	if !ok {
 		return nil, trace.AccessDenied("missing authentication")
@@ -56,21 +66,16 @@ func NewAuthenticator(ctx context.Context, permissions workload.PermissionsReade
 	if len(ids) > 1 {
 		return nil, trace.AccessDenied("multiple SPIFFE ids found")
 	}
-
-	return &Authenticator{
-		ID: ids[0],
-		P:  permissions,
-	}, nil
-}
-
-type Authenticator struct {
-	P  workload.PermissionsReader
-	ID spiffe.ID
+	return &ids[0], nil
 }
 
 // GetSignPermission return permission for actor identified by SPIFFE ID
 func (a *Authenticator) GetSignPermission(ctx context.Context, sp workload.SignPermission) (*workload.SignPermission, error) {
-	sp.ID = a.ID
+	id, err := a.getID(ctx)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	sp.ID = *id
 	out, err := a.P.GetSignPermission(ctx, sp)
 	if err != nil {
 		if trace.IsNotFound(err) {
@@ -83,7 +88,11 @@ func (a *Authenticator) GetSignPermission(ctx context.Context, sp workload.SignP
 
 // GetPermission returns permission for actor identified by SPIFFE ID
 func (a *Authenticator) GetPermission(ctx context.Context, p workload.Permission) (*workload.Permission, error) {
-	p.ID = a.ID
+	id, err := a.getID(ctx)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	p.ID = *id
 	out, err := a.P.GetPermission(ctx, p)
 	if err != nil {
 		if trace.IsNotFound(err) {

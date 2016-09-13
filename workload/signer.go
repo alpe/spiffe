@@ -27,8 +27,6 @@ import (
 	"golang.org/x/net/context"
 )
 
-// CertSigned uses access to stored data
-// to process certificate signing requests
 type CertSigner struct {
 	Collections
 	clockwork.Clock

@@ -309,7 +309,7 @@ func (p *Permission) Check() error {
 		return trace.Wrap(err)
 	}
 	switch p.Action {
-	case ActionRead, ActionUpdate, ActionCreate, ActionDelete:
+	case ActionRead, ActionUpsert, ActionCreate, ActionDelete:
 	case "":
 		return trace.BadParameter("missing parameter Action")
 	default:
@@ -323,7 +323,7 @@ func (p *Permission) Check() error {
 
 const (
 	ActionRead   = "read"
-	ActionUpdate = "update"
+	ActionUpsert = "upsert"
 	ActionCreate = "create"
 	ActionDelete = "delete"
 )
@@ -337,6 +337,8 @@ const (
 	CollectionCertAuthorities = "authorities"
 	// CollectionPermissions controls collection with permissions
 	CollectionPermissions = "permissions"
+	// CollectionSignPermissions controls collection with sign permissions
+	CollectionSignPermissions = "signpermissions"
 )
 
 // SignPermission reads as:
@@ -376,7 +378,7 @@ func (p *SignPermission) Check() error {
 	return nil
 }
 
-// Collections manages stored collections - Workloads, Permissions, Authorities and TrustedRoots
+// Collections manages stored collections - Workloads, Permissions, Authorities and TrustedRootBundles
 type Collections interface {
 	Permissions
 	TrustedRootBundles

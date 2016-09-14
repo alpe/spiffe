@@ -31,7 +31,7 @@ install:
 # run runs local dev server
 .PHONY: run
 run: install
-	spiffe --debug
+	spiffe --config=./fixtures/local.yaml
 
 # send sends test message
 .PHONY: send

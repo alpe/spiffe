@@ -1,0 +1,11 @@
+debug: true
+statedir: /var/lib/spiffe
+profilelistenaddr: localhost:6060
+backend:
+  type: etcdv2
+  etcdv2:
+    nodes: ['https://localhost:4001']
+    key: /gravity/test
+    tlskeyfile: ./fixtures/certs/proxy1-key.pem
+    tlscertfile: ./fixtures/certs/proxy1.pem
+    tlscafile: ./fixtures/ca.pem

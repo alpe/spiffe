@@ -89,6 +89,182 @@
         ]
       }
     },
+    "/v1/workload/bundles": {
+      "post": {
+        "operationId": "CreateTrustedRootBundle",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/protobufEmpty"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/apiTrustedRootBundle"
+            }
+          }
+        ],
+        "tags": [
+          "Service"
+        ]
+      }
+    },
+    "/v1/workload/bundles/{ID}": {
+      "get": {
+        "operationId": "GetTrustedRootBundle",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/apiTrustedRootBundle"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "ID",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "string"
+          }
+        ],
+        "tags": [
+          "Service"
+        ]
+      },
+      "delete": {
+        "operationId": "DeleteTrustedRootBundle",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/protobufEmpty"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "ID",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "string"
+          }
+        ],
+        "tags": [
+          "Service"
+        ]
+      }
+    },
+    "/v1/workload/permissions": {
+      "post": {
+        "operationId": "UpsertPermission",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/protobufEmpty"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/apiPermission"
+            }
+          }
+        ],
+        "tags": [
+          "Service"
+        ]
+      }
+    },
+    "/v1/workload/permissions/{ID}/{Action}/{Collection}": {
+      "get": {
+        "operationId": "GetPermission",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/apiPermission"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "ID",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "string"
+          },
+          {
+            "name": "Action",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "string"
+          },
+          {
+            "name": "Collection",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "string"
+          }
+        ],
+        "tags": [
+          "Service"
+        ]
+      },
+      "delete": {
+        "operationId": "DeletePermission",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/protobufEmpty"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "ID",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "string"
+          },
+          {
+            "name": "Action",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "string"
+          },
+          {
+            "name": "Collection",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "string"
+          }
+        ],
+        "tags": [
+          "Service"
+        ]
+      }
+    },
     "/v1/workload/sign": {
       "post": {
         "operationId": "ProcessCertificateRequest",
@@ -108,6 +284,108 @@
             "schema": {
               "$ref": "#/definitions/apiCertificateRequest"
             }
+          }
+        ],
+        "tags": [
+          "Service"
+        ]
+      }
+    },
+    "/v1/workload/signpermissions": {
+      "post": {
+        "operationId": "UpsertSignPermission",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/protobufEmpty"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/apiSignPermission"
+            }
+          }
+        ],
+        "tags": [
+          "Service"
+        ]
+      }
+    },
+    "/v1/workload/signpermissions/{ID}/{CertAuthorityID}/{Org}": {
+      "get": {
+        "operationId": "GetSignPermission",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/apiSignPermission"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "ID",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "string"
+          },
+          {
+            "name": "CertAuthorityID",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "string"
+          },
+          {
+            "name": "Org",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "string"
+          }
+        ],
+        "tags": [
+          "Service"
+        ]
+      },
+      "delete": {
+        "operationId": "DeleteSignPermission",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/protobufEmpty"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "ID",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "string"
+          },
+          {
+            "name": "CertAuthorityID",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "string"
+          },
+          {
+            "name": "Org",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "string"
           }
         ],
         "tags": [
@@ -207,6 +485,23 @@
     }
   },
   "definitions": {
+    "TrustedRootBundleTrustedRootCert": {
+      "type": "object",
+      "properties": {
+        "Cert": {
+          "type": "string",
+          "format": "byte"
+        },
+        "Filename": {
+          "type": "string",
+          "format": "string"
+        },
+        "ID": {
+          "type": "string",
+          "format": "string"
+        }
+      }
+    },
     "WorkloadScopedID": {
       "type": "object",
       "properties": {
@@ -270,6 +565,67 @@
     "apiID": {
       "type": "object",
       "properties": {
+        "ID": {
+          "type": "string",
+          "format": "string"
+        }
+      }
+    },
+    "apiPermission": {
+      "type": "object",
+      "properties": {
+        "Action": {
+          "type": "string",
+          "format": "string"
+        },
+        "Collection": {
+          "type": "string",
+          "format": "string"
+        },
+        "CollectionID": {
+          "type": "string",
+          "format": "string"
+        },
+        "ID": {
+          "type": "string",
+          "format": "string"
+        }
+      }
+    },
+    "apiSignPermission": {
+      "type": "object",
+      "properties": {
+        "CertAuthorityID": {
+          "type": "string",
+          "format": "string"
+        },
+        "ID": {
+          "type": "string",
+          "format": "string"
+        },
+        "MaxTTL": {
+          "type": "string",
+          "format": "int64"
+        },
+        "Org": {
+          "type": "string",
+          "format": "string"
+        },
+        "SignID": {
+          "type": "string",
+          "format": "string"
+        }
+      }
+    },
+    "apiTrustedRootBundle": {
+      "type": "object",
+      "properties": {
+        "Certs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/TrustedRootBundleTrustedRootCert"
+          }
+        },
         "ID": {
           "type": "string",
           "format": "string"

@@ -23,16 +23,19 @@ import (
 )
 
 // NewService returns new service based on collections interface (usually a backend)
-func NewService(collections Collections) Service {
-	return &CertSigner{Collections: collections, Clock: clockwork.NewRealClock()}
+func NewService(collections Collections, clock clockwork.Clock) Service {
+	if clock == nil {
+		clock = clockwork.NewRealClock()
+	}
+	return &CertSigner{Collections: collections, Clock: clock}
 }
 
 // NewACL wraps service into access controller that checks every action
 // against the permissions table
-func NewACL(collections Collections, auth PermissionsReader) Service {
+func NewACL(collections Collections, auth PermissionsReader, clock clockwork.Clock) Service {
 	return &ACL{
 		Auth:    auth,
-		Service: &CertSigner{Collections: collections, Clock: clockwork.NewRealClock()},
+		Service: NewService(collections, clock),
 	}
 }
 

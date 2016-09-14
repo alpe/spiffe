@@ -69,11 +69,11 @@ func (s *RPCSuite) SetUpTest(c *C) {
 	s.backend, err = etcdv2.NewTemp(os.Getenv(spiffe.TestETCDConfig))
 	c.Assert(err, IsNil)
 
-	localService := workload.NewService(s.backend.Backend)
+	localService := workload.NewService(s.backend.Backend, nil)
 
 	auth, err := NewAuthenticator(s.backend.Backend)
 	c.Assert(err, IsNil)
-	server, err := NewServer(workload.NewACL(s.backend.Backend, auth))
+	server, err := NewServer(workload.NewACL(s.backend.Backend, auth, s.backend.Clock))
 	c.Assert(err, IsNil)
 
 	ports, err := GetFreeTCPPorts(1)
@@ -167,9 +167,32 @@ func (s *RPCSuite) SetUpTest(c *C) {
 		{ID: suite.AliceID, Action: workload.ActionUpsert, Collection: workload.CollectionWorkloads},
 		{ID: suite.AliceID, Action: workload.ActionRead, Collection: workload.CollectionWorkloads},
 		{ID: suite.AliceID, Action: workload.ActionDelete, Collection: workload.CollectionWorkloads},
+
+		// root bundles
+		{ID: suite.AliceID, Action: workload.ActionUpsert, Collection: workload.CollectionTrustedRootBundles},
+		{ID: suite.AliceID, Action: workload.ActionRead, Collection: workload.CollectionTrustedRootBundles},
+		{ID: suite.AliceID, Action: workload.ActionDelete, Collection: workload.CollectionTrustedRootBundles},
+
+		// permissions
+		{ID: suite.AliceID, Action: workload.ActionUpsert, Collection: workload.CollectionPermissions},
+		{ID: suite.AliceID, Action: workload.ActionRead, Collection: workload.CollectionPermissions},
+		{ID: suite.AliceID, Action: workload.ActionDelete, Collection: workload.CollectionPermissions},
+
+		// sign permissions
+		{ID: suite.AliceID, Action: workload.ActionUpsert, Collection: workload.CollectionSignPermissions},
+		{ID: suite.AliceID, Action: workload.ActionRead, Collection: workload.CollectionSignPermissions},
+		{ID: suite.AliceID, Action: workload.ActionDelete, Collection: workload.CollectionSignPermissions},
 	}
 	for _, p := range permissions {
 		err = s.backend.Backend.UpsertPermission(context.TODO(), p)
+		c.Assert(err, IsNil)
+	}
+
+	signPermissions := []workload.SignPermission{
+		{ID: suite.AliceID, CertAuthorityID: "example.com", Org: "*.example.com", MaxTTL: 24 * time.Hour},
+	}
+	for _, sp := range signPermissions {
+		err = s.backend.Backend.UpsertSignPermission(context.TODO(), sp)
 		c.Assert(err, IsNil)
 	}
 }

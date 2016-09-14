@@ -529,6 +529,8 @@ func (b *Backend) permKey(p workload.Permission) (string, error) {
 	}
 	if p.CollectionID == "" {
 		key.collectionID = allCollections
+	} else {
+		key.collectionID = p.CollectionID
 	}
 	return b.key(
 		permissionsP, key.id, key.action, key.collection, key.collectionID), nil

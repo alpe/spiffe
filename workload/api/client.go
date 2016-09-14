@@ -154,9 +154,7 @@ func (c *Client) Subscribe(ctx context.Context, eventC chan *workload.WorkloadEv
 			close(eventC)
 		}()
 		for {
-			log.Infof("before: %v %v", stream, err)
 			event, err := stream.Recv()
-			log.Infof("after: %v %v", stream, err)
 			if err == io.EOF {
 				return
 			}
@@ -183,45 +181,99 @@ func (c *Client) Subscribe(ctx context.Context, eventC chan *workload.WorkloadEv
 
 // CreateTrustedRootBundle creates trusted root certificate bundle
 func (c *Client) CreateTrustedRootBundle(ctx context.Context, bundle workload.TrustedRootBundle) error {
-	panic("not implemented")
+	var header metadata.MD
+	_, err := c.Client.CreateTrustedRootBundle(ctx, bundleToGRPC(&bundle), grpc.Header(&header))
+	if err != nil {
+		err = trail.FromGRPC(err, header)
+		return trace.Wrap(err)
+	}
+	return nil
 }
 
 // GetTrustedRoot returns trusted root certificate by its ID
 func (c *Client) GetTrustedRootBundle(ctx context.Context, id string) (*workload.TrustedRootBundle, error) {
-	panic("not implemented")
+	var header metadata.MD
+	re, err := c.Client.GetTrustedRootBundle(ctx, &ID{ID: id}, grpc.Header(&header))
+	if err != nil {
+		err = trail.FromGRPC(err, header)
+		return nil, trace.Wrap(err)
+	}
+	return bundleFromGRPC(re), nil
 }
 
 // DeleteTrustedRootBundle deletes TrustedRoot by its ID
 func (c *Client) DeleteTrustedRootBundle(ctx context.Context, id string) error {
-	panic("not implemented")
-}
-
-// GetSignPermission return permission for actor identified by SPIFFE ID
-func (c *Client) GetSignPermission(ctx context.Context, sp workload.SignPermission) (*workload.SignPermission, error) {
-	panic("not implemented")
-}
-
-// UpsertSignPermission updates or inserts permission for actor identified by SPIFFE ID
-func (c *Client) UpsertSignPermission(ctx context.Context, sp workload.SignPermission) error {
-	panic("not implemented")
-}
-
-// DeleteSignPermission deletes sign permission
-func (c *Client) DeleteSignPermission(ctx context.Context, sp workload.SignPermission) error {
-	panic("not implemented")
+	var header metadata.MD
+	_, err := c.Client.DeleteTrustedRootBundle(ctx, &ID{ID: id}, grpc.Header(&header))
+	if err != nil {
+		err = trail.FromGRPC(err, header)
+		return trace.Wrap(err)
+	}
+	return nil
 }
 
 // GetPermission returns permission for actor identified by SPIFFE ID
 func (c *Client) GetPermission(ctx context.Context, p workload.Permission) (*workload.Permission, error) {
-	panic("not implemented")
+	var header metadata.MD
+	re, err := c.Client.GetPermission(ctx, permissionToGRPC(&p), grpc.Header(&header))
+	if err != nil {
+		err = trail.FromGRPC(err, header)
+		return nil, trace.Wrap(err)
+	}
+	return permissionFromGRPC(re)
 }
 
 // UpsertPermission updates or inserts permission for actor identified by SPIFFE ID
 func (c *Client) UpsertPermission(ctx context.Context, p workload.Permission) error {
-	panic("not implemented")
+	var header metadata.MD
+	_, err := c.Client.UpsertPermission(ctx, permissionToGRPC(&p), grpc.Header(&header))
+	if err != nil {
+		err = trail.FromGRPC(err, header)
+		return trace.Wrap(err)
+	}
+	return nil
 }
 
 // DeletePermission deletes permission
 func (c *Client) DeletePermission(ctx context.Context, p workload.Permission) error {
-	panic("not implemented")
+	var header metadata.MD
+	_, err := c.Client.DeletePermission(ctx, permissionToGRPC(&p), grpc.Header(&header))
+	if err != nil {
+		err = trail.FromGRPC(err, header)
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// GetSignPermission return permission for actor identified by SPIFFE ID
+func (c *Client) GetSignPermission(ctx context.Context, sp workload.SignPermission) (*workload.SignPermission, error) {
+	var header metadata.MD
+	re, err := c.Client.GetSignPermission(ctx, signPermissionToGRPC(&sp), grpc.Header(&header))
+	if err != nil {
+		err = trail.FromGRPC(err, header)
+		return nil, trace.Wrap(err)
+	}
+	return signPermissionFromGRPC(re)
+}
+
+// UpsertSignPermission updates or inserts permission for actor identified by SPIFFE ID
+func (c *Client) UpsertSignPermission(ctx context.Context, sp workload.SignPermission) error {
+	var header metadata.MD
+	_, err := c.Client.UpsertSignPermission(ctx, signPermissionToGRPC(&sp), grpc.Header(&header))
+	if err != nil {
+		err = trail.FromGRPC(err, header)
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// DeleteSignPermission deletes sign permission
+func (c *Client) DeleteSignPermission(ctx context.Context, sp workload.SignPermission) error {
+	var header metadata.MD
+	_, err := c.Client.DeleteSignPermission(ctx, signPermissionToGRPC(&sp), grpc.Header(&header))
+	if err != nil {
+		err = trail.FromGRPC(err, header)
+		return trace.Wrap(err)
+	}
+	return nil
 }

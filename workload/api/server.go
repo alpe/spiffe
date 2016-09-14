@@ -122,23 +122,204 @@ func (s *Server) Subscribe(_ *empty.Empty, stream Service_SubscribeServer) error
 	for {
 		select {
 		case <-ctx.Done():
-			log.Infof("stream is closing")
+			log.Debugf("stream is closing")
 			return nil
 		case event := <-eventsC:
-			log.Infof("got event to send: %v", event)
+			log.Debugf("got event to send: %v", event)
 			out, err := workloadEventToGRPC(event)
 			if err != nil {
-				log.Errorf("fail: %v", err)
+				log.Error(trace.DebugReport(err))
 				return trail.Send(ctx, err)
 			}
-			log.Infof("sending to client: %v", out)
+			log.Debugf("sending to client: %v", out)
 			if err := stream.Send(out); err != nil {
-				log.Errorf("fail: %v", err)
+				log.Error(trace.DebugReport(err))
 				return err
 			}
-			log.Infof("sent to client: %v", out)
+			log.Debugf("sent to client: %v", out)
 		}
 	}
+}
+
+func (s *Server) CreateTrustedRootBundle(ctx context.Context, bundle *TrustedRootBundle) (*empty.Empty, error) {
+	err := s.Service.CreateTrustedRootBundle(ctx, *bundleFromGRPC(bundle))
+	if err != nil {
+		return nil, trail.Send(ctx, err)
+	}
+	return &empty.Empty{}, nil
+}
+
+func (s *Server) GetTrustedRootBundle(ctx context.Context, id *ID) (*TrustedRootBundle, error) {
+	out, err := s.Service.GetTrustedRootBundle(ctx, id.ID)
+	if err != nil {
+		return nil, trail.Send(ctx, err)
+	}
+	return bundleToGRPC(out), nil
+}
+
+func (s *Server) DeleteTrustedRootBundle(ctx context.Context, id *ID) (*empty.Empty, error) {
+	err := s.Service.DeleteTrustedRootBundle(ctx, id.ID)
+	if err != nil {
+		return nil, trail.Send(ctx, err)
+	}
+	return &empty.Empty{}, nil
+}
+
+func (s *Server) GetPermission(ctx context.Context, in *Permission) (*Permission, error) {
+	p, err := permissionFromGRPC(in)
+	if err != nil {
+		return nil, trail.Send(ctx, err)
+	}
+	out, err := s.Service.GetPermission(ctx, *p)
+	if err != nil {
+		return nil, trail.Send(ctx, err)
+	}
+	return permissionToGRPC(out), nil
+}
+
+func (s *Server) UpsertPermission(ctx context.Context, in *Permission) (*empty.Empty, error) {
+	p, err := permissionFromGRPC(in)
+	if err != nil {
+		return nil, trail.Send(ctx, err)
+	}
+	err = s.Service.UpsertPermission(ctx, *p)
+	if err != nil {
+		return nil, trail.Send(ctx, err)
+	}
+	return &empty.Empty{}, nil
+}
+
+func (s *Server) DeletePermission(ctx context.Context, in *Permission) (*empty.Empty, error) {
+	p, err := permissionFromGRPC(in)
+	if err != nil {
+		return nil, trail.Send(ctx, err)
+	}
+	err = s.Service.DeletePermission(ctx, *p)
+	if err != nil {
+		return nil, trail.Send(ctx, err)
+	}
+	return &empty.Empty{}, nil
+}
+
+func (s *Server) GetSignPermission(ctx context.Context, in *SignPermission) (*SignPermission, error) {
+	p, err := signPermissionFromGRPC(in)
+	if err != nil {
+		return nil, trail.Send(ctx, err)
+	}
+	out, err := s.Service.GetSignPermission(ctx, *p)
+	if err != nil {
+		return nil, trail.Send(ctx, err)
+	}
+	return signPermissionToGRPC(out), nil
+}
+
+func (s *Server) UpsertSignPermission(ctx context.Context, in *SignPermission) (*empty.Empty, error) {
+	p, err := signPermissionFromGRPC(in)
+	if err != nil {
+		return nil, trail.Send(ctx, err)
+	}
+	err = s.Service.UpsertSignPermission(ctx, *p)
+	if err != nil {
+		return nil, trail.Send(ctx, err)
+	}
+	return &empty.Empty{}, nil
+}
+
+func (s *Server) DeleteSignPermission(ctx context.Context, in *SignPermission) (*empty.Empty, error) {
+	p, err := signPermissionFromGRPC(in)
+	if err != nil {
+		return nil, trail.Send(ctx, err)
+	}
+	err = s.Service.DeleteSignPermission(ctx, *p)
+	if err != nil {
+		return nil, trail.Send(ctx, err)
+	}
+	return &empty.Empty{}, nil
+}
+
+func signPermissionFromGRPC(in *SignPermission) (*workload.SignPermission, error) {
+	sid, err := spiffe.ParseID(in.ID)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	var signID *spiffe.ID
+	if in.SignID != "" {
+		if signID, err = spiffe.ParseID(in.ID); err != nil {
+			return nil, trace.Wrap(err)
+		}
+	}
+	return &workload.SignPermission{
+		ID:              *sid,
+		CertAuthorityID: in.CertAuthorityID,
+		Org:             in.Org,
+		SignID:          signID,
+		MaxTTL:          time.Duration(in.MaxTTL),
+	}, nil
+}
+
+func signPermissionToGRPC(in *workload.SignPermission) *SignPermission {
+	out := SignPermission{
+		ID:              in.ID.String(),
+		CertAuthorityID: in.CertAuthorityID,
+		Org:             in.Org,
+		MaxTTL:          int64(in.MaxTTL),
+	}
+	if in.SignID != nil {
+		out.SignID = in.SignID.String()
+	}
+	return &out
+}
+
+func permissionFromGRPC(in *Permission) (*workload.Permission, error) {
+	sid, err := spiffe.ParseID(in.ID)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &workload.Permission{
+		ID:           *sid,
+		Action:       in.Action,
+		Collection:   in.Collection,
+		CollectionID: in.CollectionID,
+	}, nil
+}
+
+func permissionToGRPC(in *workload.Permission) *Permission {
+	return &Permission{
+		ID:           in.ID.String(),
+		Action:       in.Action,
+		Collection:   in.Collection,
+		CollectionID: in.CollectionID,
+	}
+}
+
+func bundleFromGRPC(in *TrustedRootBundle) *workload.TrustedRootBundle {
+	out := workload.TrustedRootBundle{
+		ID:    in.ID,
+		Certs: make([]workload.TrustedRootCert, len(in.Certs)),
+	}
+	for i, c := range in.Certs {
+		out.Certs[i] = workload.TrustedRootCert{
+			ID:       c.ID,
+			Filename: c.Filename,
+			Cert:     c.Cert,
+		}
+	}
+	return &out
+}
+
+func bundleToGRPC(in *workload.TrustedRootBundle) *TrustedRootBundle {
+	out := TrustedRootBundle{
+		ID:    in.ID,
+		Certs: make([]*TrustedRootBundle_TrustedRootCert, len(in.Certs)),
+	}
+	for i, c := range in.Certs {
+		out.Certs[i] = &TrustedRootBundle_TrustedRootCert{
+			ID:       c.ID,
+			Filename: c.Filename,
+			Cert:     c.Cert,
+		}
+	}
+	return &out
 }
 
 func workloadEventFromGRPC(in *WorkloadEvent) (*workload.WorkloadEvent, error) {

@@ -103,7 +103,7 @@ service Service {
         };
     }
 
-	rpc UpsertWorkload(Workload)  returns (google.protobuf.Empty) {
+	rpc UpsertWorkload(Workload) returns (google.protobuf.Empty) {
         option (google.api.http) = {
 			post: "/v1/workload/workloads"
 			body: "*"
@@ -125,6 +125,64 @@ service Service {
 	rpc Subscribe(google.protobuf.Empty) returns (stream WorkloadEvent) {
         option (google.api.http) = {
 			get: "/v1/workload/workloadsevents"
+		};
+    }
+
+
+	rpc CreateTrustedRootBundle(TrustedRootBundle) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+			post: "/v1/workload/bundles"
+			body: "*"
+		};
+    }
+
+	rpc GetTrustedRootBundle(ID) returns (TrustedRootBundle) {
+        option (google.api.http) = {
+			get: "/v1/workload/bundles/{ID}"
+		};
+    }
+
+	rpc DeleteTrustedRootBundle(ID) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+			delete: "/v1/workload/bundles/{ID}"
+		};
+    }
+
+	rpc GetPermission(Permission) returns (Permission) {
+        option (google.api.http) = {
+			get: "/v1/workload/permissions/{ID}/{Action}/{Collection}"
+		};
+    }
+
+    rpc UpsertPermission(Permission) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+			post: "/v1/workload/permissions"
+			body: "*"
+		};
+    }
+	
+	rpc DeletePermission(Permission) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+			delete: "/v1/workload/permissions/{ID}/{Action}/{Collection}"
+		};
+    }
+
+    rpc GetSignPermission(SignPermission) returns (SignPermission) {
+        option (google.api.http) = {
+			get: "/v1/workload/signpermissions/{ID}/{CertAuthorityID}/{Org}"
+		};
+    }
+
+	rpc UpsertSignPermission(SignPermission) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+			post: "/v1/workload/signpermissions"
+			body: "*"
+		};
+    }
+	
+	rpc DeleteSignPermission(SignPermission) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+			delete: "/v1/workload/signpermissions/{ID}/{CertAuthorityID}/{Org}"
 		};
     }
 }

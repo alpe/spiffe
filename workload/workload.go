@@ -161,10 +161,10 @@ type Workload struct {
 	ID string
 	// Identities is a list of SPIFFE ids associated with this workload
 	Identities []ScopedID
-	// TrustedRootIDs is a list of IDs of trusted root certificate bundles assigned
+	// TrustedBundleIDs is a list of IDs of trusted root certificate bundles assigned
 	// to this workload. NodeCA will use this list to update trusted roots
 	// of SPIFFE-powered servers and clients
-	TrustedRootIDs []string
+	TrustedBundleIDs []string
 }
 
 // Check checks whether all workload params are valid
@@ -300,7 +300,7 @@ type Permission struct {
 
 // String returns human-readable permission
 func (p Permission) String() string {
-	return fmt.Sprintf("%v has no permission to %v on %v %v", p.ID, p.Action, p.Collection, p.CollectionID)
+	return fmt.Sprintf("%v has no permission to %v %v %v", p.ID, p.Action, p.Collection, p.CollectionID)
 }
 
 // Check checks whether permission is valid

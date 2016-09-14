@@ -161,6 +161,10 @@ func (b *Backend) getWatchAtLatestIndex(ctx context.Context, key string) (etcd.W
 		if !trace.IsAlreadyExists(err) {
 			return nil, nil, trace.Wrap(err)
 		}
+		re, err = b.keys.Get(ctx, key, nil)
+		if err = convertErr(err); err != nil {
+			return nil, nil, trace.Wrap(err)
+		}
 	}
 	return b.keys.Watcher(key, &etcd.WatcherOptions{
 		AfterIndex: re.Node.ModifiedIndex,

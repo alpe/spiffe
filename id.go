@@ -42,7 +42,7 @@ func (i *ID) Check() error {
 	return nil
 }
 
-func (i *ID) String() string {
+func (i ID) String() string {
 	return fmt.Sprintf("urn:spiffe:%v%v", i.Org, i.Opaque)
 }
 

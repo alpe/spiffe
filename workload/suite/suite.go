@@ -55,7 +55,7 @@ func (s *WorkloadSuite) WorkloadsCRUD(c *C) {
 				IsDefault: true,
 			},
 		},
-		TrustedRootIDs: []string{"example.com"},
+		TrustedBundleIDs: []string{"example.com"},
 	}
 	ctx := context.TODO()
 	err := s.C.UpsertWorkload(ctx, w)
@@ -74,6 +74,11 @@ func (s *WorkloadSuite) Events(c *C) {
 	eventsC := make(chan *workload.WorkloadEvent, 100)
 	err := s.C.Subscribe(ctx, eventsC)
 
+	// This is ugly, but as subscribe is async, we need to make sure
+	// that we have initialised first, so it's quite nuclear way to make
+	// sure that subscribe is here succeeds before the event get generated
+	time.Sleep(100 * time.Millisecond)
+
 	c.Assert(err, IsNil)
 	w := workload.Workload{
 		ID: "dev",
@@ -84,7 +89,7 @@ func (s *WorkloadSuite) Events(c *C) {
 				IsDefault: true,
 			},
 		},
-		TrustedRootIDs: []string{"example.com"},
+		TrustedBundleIDs: []string{"example.com"},
 	}
 	err = s.C.UpsertWorkload(ctx, w)
 	c.Assert(err, IsNil)

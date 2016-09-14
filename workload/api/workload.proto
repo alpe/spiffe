@@ -2,22 +2,129 @@ syntax = "proto3";
 package api;
 
 import "github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis/google/api/annotations.proto";
+import "google/protobuf/empty.proto";
 
 message CertificateRequest {
-  string CertAuthorityID = 1;
-  int64 TTL = 2;
-  bytes CSR = 3;
+    string CertAuthorityID = 1;
+    int64 TTL = 2;
+    bytes CSR = 3;
+}
+
+message SearchResponse {
+  message Result {
+    string url = 1;
+    string title = 2;
+    repeated string snippets = 3;
+  }
+  repeated Result results = 1;
 }
 
 message CertificateResponse {
-  bytes Cert = 1;
+    bytes Cert = 1;
+}
+
+message CertAuthority {
+	string ID = 1;
+	bytes Cert = 2;
+	bytes PrivateKey = 3;
+}
+
+message TrustedRootBundle {
+    message TrustedRootCert {
+	    string ID = 1;
+        string Filename = 2;
+        bytes Cert = 3;
+    }
+    string ID = 1;
+    repeated TrustedRootCert Certs = 2;
+}
+
+message Workload {
+    message ScopedID {
+        string ID = 1;
+        int64 MaxTTL = 2;
+        bool IsDefault = 3;
+    }
+
+	string ID = 1;
+	repeated ScopedID Identities = 2;
+	repeated string TrustedBundleIDs = 3;
+}
+
+message WorkloadEvent {
+	string ID  = 1;
+	string Type = 2;
+	Workload Workload = 3;
+}
+
+message Permission {
+	string ID = 1;
+	string Action = 2;
+	string Collection = 3;
+	string CollectionID = 4;
+}
+
+message SignPermission {
+	string ID  = 1;
+	string CertAuthorityID = 2;
+	string Org = 3;
+	string SignID = 4;
+	int64 MaxTTL = 5;
+}
+
+message ID {
+    string ID = 1;
 }
 
 service Service {
-  rpc ProcessCertificateRequest(CertificateRequest) returns (CertificateResponse) {
-    option (google.api.http) = {
-      post: "/v1/workload/sign"
-      body: "*"
-    };
-  }
+    rpc UpsertCertAuthority(CertAuthority) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+			post: "/v1/workload/authorities"
+			body: "*"
+		};
+    }
+    
+    rpc GetCertAuthority(ID) returns (CertAuthority) {
+        option (google.api.http) = {
+			get: "/v1/workload/authorities/{ID}"
+		};
+    }
+    
+	rpc DeleteCertAuthority(ID) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+			delete: "/v1/workload/authorities/{ID}"
+		};
+    }
+
+    rpc ProcessCertificateRequest(CertificateRequest) returns (CertificateResponse) {
+        option (google.api.http) = {
+            post: "/v1/workload/sign"
+            body: "*"
+        };
+    }
+
+	rpc UpsertWorkload(Workload)  returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+			post: "/v1/workload/workloads"
+			body: "*"
+		};
+    }
+
+    rpc GetWorkload(ID) returns (Workload) {
+        option (google.api.http) = {
+			get: "/v1/workload/workloads/{ID}"
+		};
+    }
+            
+	rpc DeleteWorkload(ID) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+			delete: "/v1/workload/workloads/{ID}"
+		};
+    }
+
+	rpc Subscribe(google.protobuf.Empty) returns (stream WorkloadEvent) {
+        option (google.api.http) = {
+			get: "/v1/workload/workloadsevents"
+		};
+    }
 }

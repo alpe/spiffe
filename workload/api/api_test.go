@@ -69,9 +69,6 @@ func (s *RPCSuite) SetUpTest(c *C) {
 	s.backend, err = etcdv2.NewTemp(os.Getenv(spiffe.TestETCDConfig))
 	c.Assert(err, IsNil)
 
-	s.suite.C = s.backend.Backend
-	s.suite.Clock = s.backend.Clock
-
 	localService := workload.NewService(s.backend.Backend)
 
 	auth, err := NewAuthenticator(s.backend.Backend)
@@ -123,9 +120,6 @@ func (s *RPCSuite) SetUpTest(c *C) {
 	tlsCert, err := tls.X509KeyPair(re.Cert, []byte(suite.KeyPEM))
 	c.Assert(err, IsNil)
 
-	grpcServer := grpc.NewServer(grpc.Creds(credentials.NewServerTLSFromCert(&tlsCert)))
-	RegisterServiceServer(grpcServer, server)
-
 	certAuthorityCert, err := workload.ParseCertificatePEM([]byte(suite.CertAuthorityCertPEM))
 	certPool := x509.NewCertPool()
 	certPool.AddCert(certAuthorityCert)
@@ -138,8 +132,11 @@ func (s *RPCSuite) SetUpTest(c *C) {
 	}
 	SetupTLS(config)
 
+	grpcServer := grpc.NewServer(grpc.Creds(credentials.NewTLS(config)))
+	RegisterServiceServer(grpcServer, server)
+
 	log.Infof("listening on %v", listenAddr)
-	s.listener, err = tls.Listen("tcp", listenAddr, config)
+	s.listener, err = net.Listen("tcp", listenAddr)
 	c.Assert(err, IsNil)
 	s.doneC = make(chan error, 1)
 
@@ -149,13 +146,32 @@ func (s *RPCSuite) SetUpTest(c *C) {
 
 	creds := credentials.NewTLS(config)
 
-	s.conn, err = grpc.Dial(listenAddr, grpc.WithTransportCredentials(creds))
+	s.conn, err = grpc.Dial(listenAddr, grpc.WithTransportCredentials(creds), grpc.WithBlock(),
+		grpc.WithTimeout(time.Second))
 	c.Assert(err, IsNil)
 
 	client, err := NewClient(NewServiceClient(s.conn))
 	c.Assert(err, IsNil)
 
 	s.suite.S = client
+	s.suite.C = client
+	s.suite.Clock = s.backend.Clock
+
+	permissions := []workload.Permission{
+		// authorities
+		{ID: suite.AliceID, Action: workload.ActionUpsert, Collection: workload.CollectionCertAuthorities},
+		{ID: suite.AliceID, Action: workload.ActionRead, Collection: workload.CollectionCertAuthorities},
+		{ID: suite.AliceID, Action: workload.ActionDelete, Collection: workload.CollectionCertAuthorities},
+
+		// workloads
+		{ID: suite.AliceID, Action: workload.ActionUpsert, Collection: workload.CollectionWorkloads},
+		{ID: suite.AliceID, Action: workload.ActionRead, Collection: workload.CollectionWorkloads},
+		{ID: suite.AliceID, Action: workload.ActionDelete, Collection: workload.CollectionWorkloads},
+	}
+	for _, p := range permissions {
+		err = s.backend.Backend.UpsertPermission(context.TODO(), p)
+		c.Assert(err, IsNil)
+	}
 }
 
 func (s *RPCSuite) TestWorkloadsCRUD(c *C) {

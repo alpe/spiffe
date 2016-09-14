@@ -17,8 +17,12 @@ limitations under the License.
 package api
 
 import (
+	"io"
+
 	"github.com/spiffe/spiffe/workload"
 
+	log "github.com/Sirupsen/logrus"
+	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/gravitational/trace"
 	"github.com/gravitational/trace/trail"
 	"golang.org/x/net/context"
@@ -58,17 +62,123 @@ func (c *Client) ProcessCertificateRequest(ctx context.Context, req workload.Cer
 // UpsertCertAuthority updates or inserts certificate authority
 // In case if CA can sign, Private
 func (c *Client) UpsertCertAuthority(ctx context.Context, ca workload.CertAuthority) error {
-	panic("not implemented")
+	var header metadata.MD
+	_, err := c.Client.UpsertCertAuthority(ctx, &CertAuthority{
+		ID:         ca.ID,
+		Cert:       ca.Cert,
+		PrivateKey: ca.PrivateKey,
+	}, grpc.Header(&header))
+	if err != nil {
+		err = trail.FromGRPC(err, header)
+		return trace.Wrap(err)
+	}
+	return nil
 }
 
 // GetCertAuthority returns Certificate Authority by given ID
 func (c *Client) GetCertAuthority(ctx context.Context, id string) (*workload.CertAuthority, error) {
-	panic("not implemented")
+	var header metadata.MD
+	re, err := c.Client.GetCertAuthority(ctx, &ID{ID: id}, grpc.Header(&header))
+	if err != nil {
+		err = trail.FromGRPC(err, header)
+		return nil, trace.Wrap(err)
+	}
+	return &workload.CertAuthority{
+		ID:         re.ID,
+		Cert:       re.Cert,
+		PrivateKey: re.PrivateKey,
+	}, nil
 }
 
 // DeleteCertAuthority deletes Certificate Authority by ID
 func (c *Client) DeleteCertAuthority(ctx context.Context, id string) error {
-	panic("not implemented")
+	var header metadata.MD
+	_, err := c.Client.DeleteCertAuthority(ctx, &ID{ID: id}, grpc.Header(&header))
+	if err != nil {
+		err = trail.FromGRPC(err, header)
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// UpsertWorkload update existing or insert new workload
+func (c *Client) UpsertWorkload(ctx context.Context, w workload.Workload) error {
+	var header metadata.MD
+	out, err := workloadToGRPC(&w)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	_, err = c.Client.UpsertWorkload(ctx, out, grpc.Header(&header))
+	if err != nil {
+		err = trail.FromGRPC(err, header)
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// DeleteWorkload deletes workload
+func (c *Client) DeleteWorkload(ctx context.Context, id string) error {
+	var header metadata.MD
+	_, err := c.Client.DeleteWorkload(ctx, &ID{ID: id}, grpc.Header(&header))
+	if err != nil {
+		err = trail.FromGRPC(err, header)
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// GetWorkload returns workload identified by ID
+func (c *Client) GetWorkload(ctx context.Context, id string) (*workload.Workload, error) {
+	var header metadata.MD
+	re, err := c.Client.GetWorkload(ctx, &ID{ID: id}, grpc.Header(&header))
+	if err != nil {
+		err = trail.FromGRPC(err, header)
+		return nil, trace.Wrap(err)
+	}
+	return workloadFromGRPC(re)
+}
+
+// Subscribe returns a stream of events associated with given workload IDs
+// if you wish to cancel the stream, use ctx.Close
+// eventC will be closed by Subscribe function on errors or
+// cancelled subscribe
+func (c *Client) Subscribe(ctx context.Context, eventC chan *workload.WorkloadEvent) error {
+	var header metadata.MD
+	stream, err := c.Client.Subscribe(ctx, &empty.Empty{}, grpc.Header(&header))
+	if err != nil {
+		err = trail.FromGRPC(err, header)
+		return trace.Wrap(err)
+	}
+	go func() {
+		defer func() {
+			close(eventC)
+		}()
+		for {
+			log.Infof("before: %v %v", stream, err)
+			event, err := stream.Recv()
+			log.Infof("after: %v %v", stream, err)
+			if err == io.EOF {
+				return
+			}
+			if err != nil {
+				err = trail.FromGRPC(err, header)
+				log.Error(trace.DebugReport(err))
+				return
+			}
+			out, err := workloadEventFromGRPC(event)
+			if err != nil {
+				err = trail.FromGRPC(err, header)
+				log.Error(trace.DebugReport(err))
+				return
+			}
+			select {
+			case eventC <- out:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+	return nil
 }
 
 // CreateTrustedRootBundle creates trusted root certificate bundle
@@ -83,29 +193,6 @@ func (c *Client) GetTrustedRootBundle(ctx context.Context, id string) (*workload
 
 // DeleteTrustedRootBundle deletes TrustedRoot by its ID
 func (c *Client) DeleteTrustedRootBundle(ctx context.Context, id string) error {
-	panic("not implemented")
-}
-
-// UpsertWorkload update existing or insert new workload
-func (c *Client) UpsertWorkload(ctx context.Context, w workload.Workload) error {
-	panic("not implemented")
-}
-
-// DeleteWorkload deletes workload
-func (c *Client) DeleteWorkload(ctx context.Context, id string) error {
-	panic("not implemented")
-}
-
-// GetWorkload returns workload identified by ID
-func (c *Client) GetWorkload(ctx context.Context, id string) (*workload.Workload, error) {
-	panic("not implemented")
-}
-
-// Subscribe returns a stream of events associated with given workload IDs
-// if you wish to cancel the stream, use ctx.Close
-// eventC will be closed by Subscribe function on errors or
-// cancelled subscribe
-func (c *Client) Subscribe(ctx context.Context, eventC chan *workload.WorkloadEvent) error {
 	panic("not implemented")
 }
 

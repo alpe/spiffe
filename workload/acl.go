@@ -22,7 +22,7 @@ import (
 	"golang.org/x/net/context"
 )
 
-// NewService returns new service based on collections interface (usually a backend)n
+// NewService returns new service based on collections interface (usually a backend)
 func NewService(collections Collections) Service {
 	return &CertSigner{Collections: collections, Clock: clockwork.NewRealClock()}
 }

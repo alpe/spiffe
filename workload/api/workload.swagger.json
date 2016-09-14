@@ -15,6 +15,80 @@
     "application/json"
   ],
   "paths": {
+    "/v1/workload/authorities": {
+      "post": {
+        "operationId": "UpsertCertAuthority",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/protobufEmpty"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/apiCertAuthority"
+            }
+          }
+        ],
+        "tags": [
+          "Service"
+        ]
+      }
+    },
+    "/v1/workload/authorities/{ID}": {
+      "get": {
+        "operationId": "GetCertAuthority",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/apiCertAuthority"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "ID",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "string"
+          }
+        ],
+        "tags": [
+          "Service"
+        ]
+      },
+      "delete": {
+        "operationId": "DeleteCertAuthority",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/protobufEmpty"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "ID",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "string"
+          }
+        ],
+        "tags": [
+          "Service"
+        ]
+      }
+    },
     "/v1/workload/sign": {
       "post": {
         "operationId": "ProcessCertificateRequest",
@@ -40,9 +114,133 @@
           "Service"
         ]
       }
+    },
+    "/v1/workload/workloads": {
+      "post": {
+        "operationId": "UpsertWorkload",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/protobufEmpty"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/apiWorkload"
+            }
+          }
+        ],
+        "tags": [
+          "Service"
+        ]
+      }
+    },
+    "/v1/workload/workloads/{ID}": {
+      "get": {
+        "operationId": "GetWorkload",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/apiWorkload"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "ID",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "string"
+          }
+        ],
+        "tags": [
+          "Service"
+        ]
+      },
+      "delete": {
+        "operationId": "DeleteWorkload",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/protobufEmpty"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "ID",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "string"
+          }
+        ],
+        "tags": [
+          "Service"
+        ]
+      }
+    },
+    "/v1/workload/workloadsevents": {
+      "get": {
+        "operationId": "Subscribe",
+        "responses": {
+          "200": {
+            "description": "(streaming responses)",
+            "schema": {
+              "$ref": "#/definitions/apiWorkloadEvent"
+            }
+          }
+        },
+        "tags": [
+          "Service"
+        ]
+      }
     }
   },
   "definitions": {
+    "WorkloadScopedID": {
+      "type": "object",
+      "properties": {
+        "ID": {
+          "type": "string",
+          "format": "string"
+        },
+        "IsDefault": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "MaxTTL": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "apiCertAuthority": {
+      "type": "object",
+      "properties": {
+        "Cert": {
+          "type": "string",
+          "format": "byte"
+        },
+        "ID": {
+          "type": "string",
+          "format": "string"
+        },
+        "PrivateKey": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
     "apiCertificateRequest": {
       "type": "object",
       "properties": {
@@ -68,6 +266,58 @@
           "format": "byte"
         }
       }
+    },
+    "apiID": {
+      "type": "object",
+      "properties": {
+        "ID": {
+          "type": "string",
+          "format": "string"
+        }
+      }
+    },
+    "apiWorkload": {
+      "type": "object",
+      "properties": {
+        "ID": {
+          "type": "string",
+          "format": "string"
+        },
+        "Identities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/WorkloadScopedID"
+          }
+        },
+        "TrustedBundleIDs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "string"
+          }
+        }
+      }
+    },
+    "apiWorkloadEvent": {
+      "type": "object",
+      "properties": {
+        "ID": {
+          "type": "string",
+          "format": "string"
+        },
+        "Type": {
+          "type": "string",
+          "format": "string"
+        },
+        "Workload": {
+          "$ref": "#/definitions/apiWorkload"
+        }
+      }
+    },
+    "protobufEmpty": {
+      "type": "object",
+      "description": "service Foo {\n      rpc Bar(google.protobuf.Empty) returns (google.protobuf.Empty);\n    }\n\nThe JSON representation for `Empty` is empty JSON object `{}`.",
+      "title": "A generic empty message that you can re-use to avoid defining duplicated\nempty messages in your APIs. A typical example is to use it as the request\nor the response type of an API method. For instance:"
     }
   }
 }

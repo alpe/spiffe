@@ -87,6 +87,15 @@ func (a *ACL) ProcessCertificateRequest(ctx context.Context, req CertificateRequ
 	return a.Service.ProcessCertificateRequest(ctx, req)
 }
 
+// CreateCertAuthority updates or inserts certificate authority
+// In case if CA can sign, Private
+func (a *ACL) CreateCertAuthority(ctx context.Context, ca CertAuthority) error {
+	if err := a.checkPermission(ctx, ActionUpsert, CollectionCertAuthorities, ca.ID); err != nil {
+		return trace.Wrap(err)
+	}
+	return a.Service.CreateCertAuthority(ctx, ca)
+}
+
 // UpsertCertAuthority updates or inserts certificate authority
 // In case if CA can sign, Private
 func (a *ACL) UpsertCertAuthority(ctx context.Context, ca CertAuthority) error {

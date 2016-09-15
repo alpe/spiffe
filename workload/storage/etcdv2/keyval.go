@@ -62,6 +62,16 @@ type Backend struct {
 	backoffPeriod time.Duration
 }
 
+// CreateCertAuthority creates cert authority if it does not exist
+func (b *Backend) CreateCertAuthority(ctx context.Context, w workload.CertAuthority) error {
+	data, err := marshal(w)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	_, err = b.keys.Set(ctx, b.key(authoritiesP, w.ID), data, &etcd.SetOptions{PrevExist: etcd.PrevNoExist})
+	return trace.Wrap(convertErr(err))
+}
+
 // UpsertCertAuthority updates or inserts certificate authority
 // In case if CA can sign, Private
 func (b *Backend) UpsertCertAuthority(ctx context.Context, w workload.CertAuthority) error {

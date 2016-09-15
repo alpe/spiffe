@@ -2,6 +2,7 @@ package process
 
 import (
 	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/spiffe/spiffe"
@@ -16,6 +17,7 @@ type Config struct {
 	Debug             bool
 	StateDir          string
 	ProfileListenAddr string
+	AdvertiseHostname string
 	Backend           BackendConfig
 }
 
@@ -29,6 +31,9 @@ const (
 )
 
 func (cfg *Config) Check() error {
+	if cfg.AdvertiseHostname == "" {
+		return trace.BadParameter("missing AdvertiseHostname")
+	}
 	if cfg.Backend.Type != BackendTypeEtcdV2 {
 		return trace.BadParameter("unsupported backend: %v", cfg.Backend.Type)
 	}
@@ -38,14 +43,30 @@ func (cfg *Config) Check() error {
 	return nil
 }
 
-func ReadPath(path string) ([]byte, error) {
+func NormalizePath(path string) (string, error) {
 	s, err := filepath.Abs(path)
 	if err != nil {
-		return nil, trace.ConvertSystemError(err)
+		return "", trace.ConvertSystemError(err)
 	}
 	abs, err := filepath.EvalSymlinks(s)
 	if err != nil {
-		return nil, trace.ConvertSystemError(err)
+		return "", trace.ConvertSystemError(err)
+	}
+	return abs, nil
+}
+
+func WritePath(path string, data []byte, perm os.FileMode) error {
+	err := ioutil.WriteFile(path, data, perm)
+	if err != nil {
+		return trace.ConvertSystemError(err)
+	}
+	return nil
+}
+
+func ReadPath(path string) ([]byte, error) {
+	abs, err := NormalizePath(path)
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
 	bytes, err := ioutil.ReadFile(abs)
 	if err != nil {

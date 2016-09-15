@@ -59,6 +59,21 @@ func (c *Client) ProcessCertificateRequest(ctx context.Context, req workload.Cer
 	}, nil
 }
 
+// CreateCertAuthority creates cert authority if it does not exist
+func (c *Client) CreateCertAuthority(ctx context.Context, ca workload.CertAuthority) error {
+	var header metadata.MD
+	_, err := c.Client.CreateCertAuthority(ctx, &CertAuthority{
+		ID:         ca.ID,
+		Cert:       ca.Cert,
+		PrivateKey: ca.PrivateKey,
+	}, grpc.Header(&header))
+	if err != nil {
+		err = trail.FromGRPC(err, header)
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
 // UpsertCertAuthority updates or inserts certificate authority
 // In case if CA can sign, Private
 func (c *Client) UpsertCertAuthority(ctx context.Context, ca workload.CertAuthority) error {

@@ -73,6 +73,8 @@ func (c *CertAuthority) Check() error {
 
 // Authorities manages certificate authorities
 type Authorities interface {
+	// CreateCertAuthority creates cert authority if it does not exist
+	CreateCertAuthority(ctx context.Context, ca CertAuthority) error
 	// UpsertCertAuthority updates or inserts certificate authority
 	// In case if CA can sign, Private
 	UpsertCertAuthority(ctx context.Context, ca CertAuthority) error

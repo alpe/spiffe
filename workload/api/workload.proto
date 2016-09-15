@@ -77,9 +77,16 @@ message ID {
 }
 
 service Service {
-    rpc UpsertCertAuthority(CertAuthority) returns (google.protobuf.Empty) {
+    rpc CreateCertAuthority(CertAuthority) returns (google.protobuf.Empty) {
         option (google.api.http) = {
 			post: "/v1/workload/authorities"
+			body: "*"
+		};
+    }
+    
+    rpc UpsertCertAuthority(CertAuthority) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+			put: "/v1/workload/authorities"
 			body: "*"
 		};
     }
@@ -105,7 +112,7 @@ service Service {
 
 	rpc UpsertWorkload(Workload) returns (google.protobuf.Empty) {
         option (google.api.http) = {
-			post: "/v1/workload/workloads"
+			put: "/v1/workload/workloads"
 			body: "*"
 		};
     }
@@ -156,7 +163,7 @@ service Service {
 
     rpc UpsertPermission(Permission) returns (google.protobuf.Empty) {
         option (google.api.http) = {
-			post: "/v1/workload/permissions"
+			put: "/v1/workload/permissions"
 			body: "*"
 		};
     }
@@ -175,7 +182,7 @@ service Service {
 
 	rpc UpsertSignPermission(SignPermission) returns (google.protobuf.Empty) {
         option (google.api.http) = {
-			post: "/v1/workload/signpermissions"
+			put: "/v1/workload/signpermissions"
 			body: "*"
 		};
     }

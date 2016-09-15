@@ -28,6 +28,19 @@ var _ io.Reader
 var _ = runtime.String
 var _ = utilities.NewDoubleArray
 
+func request_Service_CreateCertAuthority_0(ctx context.Context, marshaler runtime.Marshaler, client ServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq CertAuthority
+	var metadata runtime.ServerMetadata
+
+	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil {
+		return nil, metadata, grpc.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	msg, err := client.CreateCertAuthority(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+
+}
+
 func request_Service_UpsertCertAuthority_0(ctx context.Context, marshaler runtime.Marshaler, client ServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq CertAuthority
 	var metadata runtime.ServerMetadata
@@ -543,7 +556,35 @@ func RegisterServiceHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeM
 func RegisterServiceHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
 	client := NewServiceClient(conn)
 
-	mux.Handle("POST", pattern_Service_UpsertCertAuthority_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("POST", pattern_Service_CreateCertAuthority_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		if cn, ok := w.(http.CloseNotifier); ok {
+			go func(done <-chan struct{}, closed <-chan bool) {
+				select {
+				case <-done:
+				case <-closed:
+					cancel()
+				}
+			}(ctx.Done(), cn.CloseNotify())
+		}
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		rctx, err := runtime.AnnotateContext(ctx, req)
+		if err != nil {
+			runtime.HTTPError(ctx, outboundMarshaler, w, req, err)
+		}
+		resp, md, err := request_Service_CreateCertAuthority_0(rctx, inboundMarshaler, client, req, pathParams)
+		ctx = runtime.NewServerMetadataContext(ctx, md)
+		if err != nil {
+			runtime.HTTPError(ctx, outboundMarshaler, w, req, err)
+			return
+		}
+
+		forward_Service_CreateCertAuthority_0(ctx, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
+	})
+
+	mux.Handle("PUT", pattern_Service_UpsertCertAuthority_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
 		if cn, ok := w.(http.CloseNotifier); ok {
@@ -655,7 +696,7 @@ func RegisterServiceHandler(ctx context.Context, mux *runtime.ServeMux, conn *gr
 
 	})
 
-	mux.Handle("POST", pattern_Service_UpsertWorkload_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("PUT", pattern_Service_UpsertWorkload_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
 		if cn, ok := w.(http.CloseNotifier); ok {
@@ -879,7 +920,7 @@ func RegisterServiceHandler(ctx context.Context, mux *runtime.ServeMux, conn *gr
 
 	})
 
-	mux.Handle("POST", pattern_Service_UpsertPermission_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("PUT", pattern_Service_UpsertPermission_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
 		if cn, ok := w.(http.CloseNotifier); ok {
@@ -963,7 +1004,7 @@ func RegisterServiceHandler(ctx context.Context, mux *runtime.ServeMux, conn *gr
 
 	})
 
-	mux.Handle("POST", pattern_Service_UpsertSignPermission_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("PUT", pattern_Service_UpsertSignPermission_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
 		if cn, ok := w.(http.CloseNotifier); ok {
@@ -1023,6 +1064,8 @@ func RegisterServiceHandler(ctx context.Context, mux *runtime.ServeMux, conn *gr
 }
 
 var (
+	pattern_Service_CreateCertAuthority_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "workload", "authorities"}, ""))
+
 	pattern_Service_UpsertCertAuthority_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "workload", "authorities"}, ""))
 
 	pattern_Service_GetCertAuthority_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3}, []string{"v1", "workload", "authorities", "ID"}, ""))
@@ -1059,6 +1102,8 @@ var (
 )
 
 var (
+	forward_Service_CreateCertAuthority_0 = runtime.ForwardResponseMessage
+
 	forward_Service_UpsertCertAuthority_0 = runtime.ForwardResponseMessage
 
 	forward_Service_GetCertAuthority_0 = runtime.ForwardResponseMessage

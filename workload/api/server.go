@@ -56,6 +56,18 @@ func (s *Server) ProcessCertificateRequest(ctx context.Context, req *Certificate
 	}, nil
 }
 
+func (s *Server) CreateCertAuthority(ctx context.Context, ca *CertAuthority) (*empty.Empty, error) {
+	err := s.Service.CreateCertAuthority(ctx, workload.CertAuthority{
+		ID:         ca.ID,
+		Cert:       ca.Cert,
+		PrivateKey: ca.PrivateKey,
+	})
+	if err != nil {
+		return nil, trail.Send(ctx, err)
+	}
+	return &empty.Empty{}, nil
+}
+
 func (s *Server) UpsertCertAuthority(ctx context.Context, ca *CertAuthority) (*empty.Empty, error) {
 	err := s.Service.UpsertCertAuthority(ctx, workload.CertAuthority{
 		ID:         ca.ID,

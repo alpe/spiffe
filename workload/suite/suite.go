@@ -145,6 +145,9 @@ func (s *WorkloadSuite) CertAuthoritiesCRUD(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(out, DeepEquals, &ca)
 
+	err = s.C.CreateCertAuthority(ctx, ca)
+	c.Assert(trace.IsAlreadyExists(err), Equals, true, Commentf("%T", err))
+
 	err = s.C.DeleteCertAuthority(ctx, ca.ID)
 	c.Assert(err, IsNil)
 

@@ -76,7 +76,7 @@ func (s *RPCSuite) SetUpTest(c *C) {
 	server, err := NewServer(workload.NewACL(s.backend.Backend, auth, s.backend.Clock))
 	c.Assert(err, IsNil)
 
-	ports, err := GetFreeTCPPorts(1)
+	ports, err := spiffe.GetFreeTCPPorts(1)
 	c.Assert(err, IsNil)
 
 	listenAddr := fmt.Sprintf("localhost:%v", ports[0])
@@ -130,7 +130,7 @@ func (s *RPCSuite) SetUpTest(c *C) {
 		ClientAuth:   tls.RequireAndVerifyClientCert,
 		ClientCAs:    certPool,
 	}
-	SetupTLS(config)
+	spiffe.SetupTLS(config)
 
 	grpcServer := grpc.NewServer(grpc.Creds(credentials.NewTLS(config)))
 	RegisterServiceServer(grpcServer, server)
@@ -244,49 +244,4 @@ func (s *RPCSuite) TearDownTest(c *C) {
 	if s.conn != nil {
 		s.conn.Close()
 	}
-}
-
-// GetFreeTCPPorts returns a lit of available ports on localhost
-// used for testing
-func GetFreeTCPPorts(n int) ([]string, error) {
-	list := make([]string, 0, n)
-	for i := 0; i < n; i++ {
-		addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		listener, err := net.ListenTCP("tcp", addr)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		defer listener.Close()
-		tcpAddr, ok := listener.Addr().(*net.TCPAddr)
-		if !ok {
-			return nil, trace.BadParameter("Can't get tcp address")
-		}
-		list = append(list, strconv.Itoa(tcpAddr.Port))
-	}
-	return list, nil
-}
-
-// SetupTLS sets up some modern suites, preference, and min TLS versions
-func SetupTLS(config *tls.Config) {
-	config.CipherSuites = []uint16{
-		tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-		tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-
-		tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
-		tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
-
-		tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
-		tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
-
-		tls.TLS_RSA_WITH_AES_256_CBC_SHA,
-		tls.TLS_RSA_WITH_AES_128_CBC_SHA,
-	}
-
-	config.MinVersion = tls.VersionTLS12
-	config.SessionTicketsDisabled = false
-	config.ClientSessionCache = tls.NewLRUClientSessionCache(
-		1024)
 }

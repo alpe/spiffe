@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"sync"
 	"time"
 
 	"github.com/spiffe/spiffe/lib/identity"
@@ -56,11 +57,49 @@ func CreateCertificateRequest(template CertificateRequestTemplate) (*Certificate
 	}, nil
 }
 
+// NewMemStorage returns new instance of memory backed storage
+func NewMemStorage() *MemStorage {
+	return &MemStorage{
+		vals: make(map[string][]byte),
+	}
+}
+
+// MemStorage implements helper in-memory storage
+type MemStorage struct {
+	sync.Mutex
+	vals map[string][]byte
+}
+
+func (m *MemStorage) ReadPath(path string) ([]byte, error) {
+	m.Lock()
+	defer m.Unlock()
+	val, ok := m.vals[path]
+	if !ok {
+		return nil, trace.NotFound("%v not found", path)
+	}
+	return val, nil
+}
+
+func (m *MemStorage) WritePath(path string, data []byte) error {
+	m.Lock()
+	defer m.Unlock()
+	m.vals[path] = data
+	return nil
+}
+
 // FileReader specifies method to read file from storage
 type FileReader func() ([]byte, error)
 
 // FileWriter specifies a method to write files to storage
 type FileWriter func([]byte) error
+
+// RenewedKeyPair contains renewed certificate and private key
+type RenewedKeyPair struct {
+	// CertPEM is a PEM encoded certificate
+	CertPEM []byte
+	// KeyPEM is a PEM encoded private key
+	KeyPEM []byte
+}
 
 // RenewerConfig configures certificate renewer
 type RenewerConfig struct {
@@ -78,7 +117,7 @@ type RenewerConfig struct {
 	// CertWriter is used to write back the newly signed certificate
 	WriteCert FileWriter
 	// EventsC is a channel for notifications about renewed certifictes
-	EventsC chan []byte
+	EventsC chan *RenewedKeyPair
 	// Entry is a logger entry
 	Entry *log.Entry
 }
@@ -182,7 +221,7 @@ func (r *Renewer) Renew(ctx context.Context) error {
 
 	if r.EventsC != nil {
 		select {
-		case r.EventsC <- re.Cert:
+		case r.EventsC <- &RenewedKeyPair{CertPEM: re.Cert, KeyPEM: keyPEM}:
 			return nil
 		default:
 			return trace.ConnectionProblem(nil, "failed to send event")

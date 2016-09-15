@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 
 	"github.com/spiffe/spiffe/lib/constants"
+	"github.com/spiffe/spiffe/lib/identity"
 	"github.com/spiffe/spiffe/lib/workload/storage/etcdv2"
 
 	log "github.com/Sirupsen/logrus"
@@ -33,8 +34,10 @@ type Config struct {
 	Debug             bool
 	StateDir          string
 	ProfileListenAddr string
+	RPCListenAddr     string
 	AdvertiseHostname string
 	Backend           BackendConfig
+	ServerID          string
 }
 
 type BackendConfig struct {
@@ -47,6 +50,15 @@ const (
 )
 
 func (cfg *Config) Check() error {
+	if cfg.ServerID == "" {
+		return trace.BadParameter("missing parameter ServerID")
+	}
+	if _, err := identity.ParseID(cfg.ServerID); err != nil {
+		return trace.Wrap(err)
+	}
+	if cfg.RPCListenAddr == "" {
+		return trace.BadParameter("missing RPCListenAddr")
+	}
 	if cfg.AdvertiseHostname == "" {
 		return trace.BadParameter("missing AdvertiseHostname")
 	}

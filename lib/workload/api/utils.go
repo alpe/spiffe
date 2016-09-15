@@ -29,6 +29,57 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
+type ServerConfig struct {
+	TLSKey  []byte
+	TLSCert []byte
+	TLSCA   []byte
+	// Implementation of a Service
+	Server ServiceServer
+}
+
+// CheckAndSetDefaults checks config parmeters and sets some defaults
+func (c *ServerConfig) CheckAndSetDefaults() error {
+	if len(c.TLSKey) == 0 {
+		return trace.BadParameter("missing parameter TLSKey")
+	}
+	if len(c.TLSCert) == 0 {
+		return trace.BadParameter("missing parameter TLSCert")
+	}
+	if len(c.TLSCA) == 0 {
+		return trace.BadParameter("missing parameter TLSCA")
+	}
+	if c.Server == nil {
+		return trace.BadParameter("missing parameter Server")
+	}
+	return nil
+}
+
+// NewServerFromConfig creates new GRPC server from configuration
+func NewServerFromConfig(config ServerConfig) (*grpc.Server, error) {
+	if err := config.CheckAndSetDefaults(); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	tlsCert, err := tls.X509KeyPair(config.TLSCert, config.TLSKey)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	certPool := x509.NewCertPool()
+	if ok := certPool.AppendCertsFromPEM(config.TLSCA); !ok {
+		return nil, trace.BadParameter("failed to parse TLS certificate authority fields")
+	}
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{tlsCert},
+		RootCAs:      certPool,
+		ClientAuth:   tls.RequireAndVerifyClientCert,
+		ClientCAs:    certPool,
+	}
+	identity.SetupTLS(tlsConfig)
+
+	grpcServer := grpc.NewServer(grpc.Creds(credentials.NewTLS(tlsConfig)))
+	RegisterServiceServer(grpcServer, config.Server)
+	return grpcServer, nil
+}
+
 // ClientConfig specifies configuration to create TLS GRPC client
 type ClientConfig struct {
 	TargetAddr  string

@@ -19,7 +19,7 @@ package api
 import (
 	"io"
 
-	"github.com/spiffe/spiffe/workload"
+	"github.com/spiffe/spiffe/lib/workload"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/golang/protobuf/ptypes/empty"

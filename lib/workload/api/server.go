@@ -19,8 +19,8 @@ package api
 import (
 	"time"
 
-	"github.com/spiffe/spiffe"
-	"github.com/spiffe/spiffe/workload"
+	"github.com/spiffe/spiffe/lib/identity"
+	"github.com/spiffe/spiffe/lib/workload"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/golang/protobuf/ptypes/empty"
@@ -250,13 +250,13 @@ func (s *Server) DeleteSignPermission(ctx context.Context, in *SignPermission) (
 }
 
 func signPermissionFromGRPC(in *SignPermission) (*workload.SignPermission, error) {
-	sid, err := spiffe.ParseID(in.ID)
+	sid, err := identity.ParseID(in.ID)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	var signID *spiffe.ID
+	var signID *identity.ID
 	if in.SignID != "" {
-		if signID, err = spiffe.ParseID(in.ID); err != nil {
+		if signID, err = identity.ParseID(in.ID); err != nil {
 			return nil, trace.Wrap(err)
 		}
 	}
@@ -283,7 +283,7 @@ func signPermissionToGRPC(in *workload.SignPermission) *SignPermission {
 }
 
 func permissionFromGRPC(in *Permission) (*workload.Permission, error) {
-	sid, err := spiffe.ParseID(in.ID)
+	sid, err := identity.ParseID(in.ID)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -371,7 +371,7 @@ func workloadFromGRPC(in *Workload) (*workload.Workload, error) {
 		Identities:       make([]workload.ScopedID, len(in.Identities)),
 	}
 	for i, id := range in.Identities {
-		sid, err := spiffe.ParseID(id.ID)
+		sid, err := identity.ParseID(id.ID)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}

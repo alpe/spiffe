@@ -24,8 +24,8 @@ import (
 	"encoding/pem"
 	"time"
 
-	"github.com/spiffe/spiffe"
-	"github.com/spiffe/spiffe/workload"
+	"github.com/spiffe/spiffe/lib/identity"
+	"github.com/spiffe/spiffe/lib/workload"
 
 	"github.com/gravitational/trace"
 	"github.com/jonboulle/clockwork"
@@ -35,8 +35,8 @@ import (
 
 var (
 	Now     = time.Date(2015, 11, 16, 1, 2, 3, 0, time.UTC)
-	AliceID = spiffe.MustParseID("urn:spiffe:example.com:user:alice")
-	BobID   = spiffe.MustParseID("urn:spiffe:example.com:user:bob")
+	AliceID = identity.MustParseID("urn:spiffe:example.com:user:alice")
+	BobID   = identity.MustParseID("urn:spiffe:example.com:user:bob")
 )
 
 type WorkloadSuite struct {
@@ -309,9 +309,9 @@ func (s *WorkloadSuite) Signer(c *C) {
 	c.Assert(cert.Subject.CommonName, DeepEquals, csr.Subject.CommonName)
 	c.Assert(cert.Subject.Organization, DeepEquals, csr.Subject.Organization)
 
-	ids, err := spiffe.IDsFromCertificate(cert)
+	ids, err := identity.IDsFromCertificate(cert)
 	c.Assert(err, IsNil)
-	c.Assert(ids, DeepEquals, []spiffe.ID{AliceID})
+	c.Assert(ids, DeepEquals, []identity.ID{AliceID})
 	c.Assert(cert.NotAfter, DeepEquals, s.Clock.Now().Add(time.Hour))
 }
 

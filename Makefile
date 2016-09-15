@@ -3,7 +3,7 @@ GOGO_PROTO_TAG ?= v0.3
 GRPC_GATEWAY_TAG ?= v1.1.0
 BUILDBOX_TAG := spifee-buildbox:0.0.1
 PLATFORM := linux-x86_64
-GRPC_DIRS := workload/api
+GRPC_DIRS := lib/workload/api
 
 include build.assets/etcd.mk
 
@@ -25,7 +25,7 @@ run: install test-etcd
 .PHONY: test
 
 test: test-etcd remove-temp-files
-	SPIFFE_TEST_ETCD=true SPIFFE_TEST_ETCD_CONFIG=$(SPIFFE_TEST_ETCD_CONFIG) go test -v -test.parallel=0 . ./workload/...
+	SPIFFE_TEST_ETCD=true SPIFFE_TEST_ETCD_CONFIG=$(SPIFFE_TEST_ETCD_CONFIG) go test -v -test.parallel=0 ./lib/...
 
 test-package: test-etcd remove-temp-files
 	SPIFFE_TEST_ETCD=true SPIFFE_TEST_ETCD_CONFIG=$(SPIFFE_TEST_ETCD_CONFIG) go test -v ./$(p) -check.f=$(e)
@@ -93,4 +93,4 @@ test-docker: buildbox test-etcd
 
 .PHONY: buildbox-test
 buildbox-test:
-	SPIFFE_TEST_ETCD=true SPIFFE_TEST_ETCD_CONFIG=$(SPIFFE_TEST_ETCD_CONFIG) go test -v -test.parallel=0 -cover -race . ./workload/...
+	SPIFFE_TEST_ETCD=true SPIFFE_TEST_ETCD_CONFIG=$(SPIFFE_TEST_ETCD_CONFIG) go test -v -test.parallel=0 -cover ./lib/...

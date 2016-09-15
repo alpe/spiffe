@@ -17,8 +17,8 @@ limitations under the License.
 package api
 
 import (
-	"github.com/spiffe/spiffe"
-	"github.com/spiffe/spiffe/workload"
+	"github.com/spiffe/spiffe/lib/identity"
+	"github.com/spiffe/spiffe/lib/workload"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/gravitational/trace"
@@ -39,7 +39,7 @@ type Authenticator struct {
 	P workload.PermissionsReader
 }
 
-func (a *Authenticator) getID(ctx context.Context) (*spiffe.ID, error) {
+func (a *Authenticator) getID(ctx context.Context) (*identity.ID, error) {
 	p, ok := peer.FromContext(ctx)
 	if !ok {
 		return nil, trace.AccessDenied("missing authentication")
@@ -53,7 +53,7 @@ func (a *Authenticator) getID(ctx context.Context) (*spiffe.ID, error) {
 		return nil, trace.AccessDenied("unsupported autnentication type")
 	}
 
-	ids, err := spiffe.IDsFromCertificate(info.State.PeerCertificates[0])
+	ids, err := identity.IDsFromCertificate(info.State.PeerCertificates[0])
 	if err != nil {
 		log.Errorf("error parsing: %#v", trace.DebugReport(err))
 		return nil, trace.AccessDenied("missing SPIFFE id")

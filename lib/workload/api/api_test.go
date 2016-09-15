@@ -29,10 +29,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/spiffe/spiffe"
-	"github.com/spiffe/spiffe/workload"
-	"github.com/spiffe/spiffe/workload/storage/etcdv2"
-	"github.com/spiffe/spiffe/workload/suite"
+	"github.com/spiffe/spiffe/lib/constants"
+	"github.com/spiffe/spiffe/lib/identity"
+	"github.com/spiffe/spiffe/lib/workload"
+	"github.com/spiffe/spiffe/lib/workload/storage/etcdv2"
+	"github.com/spiffe/spiffe/lib/workload/suite"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/gravitational/trace"
@@ -58,7 +59,7 @@ func (s *RPCSuite) SetUpTest(c *C) {
 	log.SetOutput(os.Stderr)
 	log.SetLevel(log.DebugLevel)
 
-	testETCD := os.Getenv(spiffe.TestETCD)
+	testETCD := os.Getenv(constants.TestETCD)
 
 	if ok, _ := strconv.ParseBool(testETCD); !ok {
 		c.Skip("Skipping test suite for ETCD")
@@ -66,7 +67,7 @@ func (s *RPCSuite) SetUpTest(c *C) {
 	}
 
 	var err error
-	s.backend, err = etcdv2.NewTemp(os.Getenv(spiffe.TestETCDConfig))
+	s.backend, err = etcdv2.NewTemp(os.Getenv(constants.TestETCDConfig))
 	c.Assert(err, IsNil)
 
 	localService := workload.NewService(s.backend.Backend, nil)
@@ -76,7 +77,7 @@ func (s *RPCSuite) SetUpTest(c *C) {
 	server, err := NewServer(workload.NewACL(s.backend.Backend, auth, s.backend.Clock))
 	c.Assert(err, IsNil)
 
-	ports, err := spiffe.GetFreeTCPPorts(1)
+	ports, err := identity.GetFreeTCPPorts(1)
 	c.Assert(err, IsNil)
 
 	listenAddr := fmt.Sprintf("localhost:%v", ports[0])
@@ -130,7 +131,7 @@ func (s *RPCSuite) SetUpTest(c *C) {
 		ClientAuth:   tls.RequireAndVerifyClientCert,
 		ClientCAs:    certPool,
 	}
-	spiffe.SetupTLS(config)
+	identity.SetupTLS(config)
 
 	grpcServer := grpc.NewServer(grpc.Creds(credentials.NewTLS(config)))
 	RegisterServiceServer(grpcServer, server)

@@ -5,8 +5,9 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
-	"github.com/spiffe/spiffe"
 	"time"
+
+	"github.com/spiffe/spiffe/lib/identity"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/gravitational/trace"
@@ -18,7 +19,7 @@ import (
 // parameters necessary to generate proper certificate request
 type CertificateRequestTemplate struct {
 	CertAuthorityID string
-	ID              spiffe.ID
+	ID              identity.ID
 	Subject         pkix.Name
 	DNSNames        []string
 	KeyPEM          []byte
@@ -135,7 +136,7 @@ func (r *Renewer) Renew(ctx context.Context) error {
 			return trace.Wrap(err)
 		}
 		r.Debugf("key is not found, generate a new one")
-		keyPEM, err = spiffe.GenerateRSAPrivateKeyPEM()
+		keyPEM, err = identity.GenerateRSAPrivateKeyPEM()
 		if err != nil {
 			return trace.Wrap(err)
 		}

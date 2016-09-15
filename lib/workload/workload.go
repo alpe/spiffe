@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/spiffe/spiffe"
+	"github.com/spiffe/spiffe/lib/identity"
 
 	"github.com/gravitational/trace"
 	"golang.org/x/net/context"
@@ -150,7 +150,7 @@ type TrustedRootBundles interface {
 // scope of usage (limits Max TTL for certificate issued)
 type ScopedID struct {
 	// ID is a SPIFFE ID
-	ID spiffe.ID
+	ID identity.ID
 	// MaxTTL sets up maximum TTL for the signed cert for this workload
 	MaxTTL time.Duration
 	// IsDefault sets up this ID as a default id for the workload
@@ -291,7 +291,7 @@ type Permissions interface {
 // execute some action. Reads as:
 // This actor with identifier ID can Action on Collection with element CollectionID
 type Permission struct {
-	ID spiffe.ID
+	ID identity.ID
 	// Action  is the action that this
 	Action string
 	// Collection represents some stored collection of elements
@@ -347,13 +347,13 @@ const (
 // this ID can generate certificates for organisation Org and SPIFFE ids IDs
 // using certificate authority CertAuthorityID
 type SignPermission struct {
-	ID spiffe.ID
+	ID identity.ID
 	// CertAuthorityID if present allows signing using particular certificate authority ID
 	CertAuthorityID string
 	// Org if present, limits generating CSRs to get certificates for paricular org name
 	Org string
 	// SignIDs if present, limits using signing for particular SPIFFE ID
-	SignID *spiffe.ID
+	SignID *identity.ID
 	// MaxTTL controls maximum TTL of the issued certificate
 	MaxTTL time.Duration
 }

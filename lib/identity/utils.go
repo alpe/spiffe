@@ -1,4 +1,20 @@
-package spiffe
+/*
+Copyright 2016 SPIFFE authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package identity
 
 import (
 	"crypto/rand"
@@ -18,6 +34,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	logrusSyslog "github.com/Sirupsen/logrus/hooks/syslog"
 	"github.com/gravitational/trace"
+	"github.com/spiffe/spiffe/lib/constants"
 )
 
 // InitLoggerCLI tools by default log into syslog, not stderr
@@ -49,7 +66,7 @@ func InitLoggerDebug() {
 
 // GenerateRSAPrivateKeyPEM generates new RSA private key and returns PEM encoded bytes
 func GenerateRSAPrivateKeyPEM() ([]byte, error) {
-	priv, err := rsa.GenerateKey(rand.Reader, DefaultRSABits)
+	priv, err := rsa.GenerateKey(rand.Reader, constants.DefaultRSABits)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -58,7 +75,7 @@ func GenerateRSAPrivateKeyPEM() ([]byte, error) {
 
 // GenerateSelfSignedCA generates self-signed certificate authority used for internal inter-node communications
 func GenerateSelfSignedCA(entity pkix.Name, dnsNames []string, ttl time.Duration) ([]byte, []byte, error) {
-	priv, err := rsa.GenerateKey(rand.Reader, DefaultRSABits)
+	priv, err := rsa.GenerateKey(rand.Reader, constants.DefaultRSABits)
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}

@@ -5,7 +5,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/spiffe/spiffe/process"
+	"github.com/spiffe/spiffe/lib/process"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/gravitational/trace"

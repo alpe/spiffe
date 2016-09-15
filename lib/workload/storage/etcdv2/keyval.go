@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spiffe/spiffe/workload"
+	"github.com/spiffe/spiffe/lib/workload"
 
 	log "github.com/Sirupsen/logrus"
 	etcd "github.com/coreos/etcd/client"

@@ -21,9 +21,9 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/spiffe/spiffe"
-	"github.com/spiffe/spiffe/workload"
-	"github.com/spiffe/spiffe/workload/suite"
+	"github.com/spiffe/spiffe/lib/constants"
+	"github.com/spiffe/spiffe/lib/workload"
+	"github.com/spiffe/spiffe/lib/workload/suite"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/gravitational/trace"
@@ -43,7 +43,7 @@ func (s *ESuite) SetUpTest(c *C) {
 	log.SetOutput(os.Stderr)
 	log.SetLevel(log.DebugLevel)
 
-	testETCD := os.Getenv(spiffe.TestETCD)
+	testETCD := os.Getenv(constants.TestETCD)
 
 	if ok, _ := strconv.ParseBool(testETCD); !ok {
 		c.Skip("Skipping test suite for ETCD")
@@ -51,8 +51,8 @@ func (s *ESuite) SetUpTest(c *C) {
 	}
 
 	var err error
-	log.Info(os.Getenv(spiffe.TestETCDConfig))
-	s.backend, err = NewTemp(os.Getenv(spiffe.TestETCDConfig))
+	log.Info(os.Getenv(constants.TestETCDConfig))
+	s.backend, err = NewTemp(os.Getenv(constants.TestETCDConfig))
 	c.Assert(err, IsNil)
 
 	s.suite.C = s.backend.Backend

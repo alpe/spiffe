@@ -1,3 +1,19 @@
+/*
+Copyright 2016 SPIFFE authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package process
 
 import (
@@ -6,9 +22,10 @@ import (
 	_ "net/http/pprof"
 	"path/filepath"
 
-	"github.com/spiffe/spiffe"
-	"github.com/spiffe/spiffe/workload"
-	"github.com/spiffe/spiffe/workload/storage/etcdv2"
+	"github.com/spiffe/spiffe/lib/constants"
+	"github.com/spiffe/spiffe/lib/identity"
+	"github.com/spiffe/spiffe/lib/workload"
+	"github.com/spiffe/spiffe/lib/workload/storage/etcdv2"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/gravitational/trace"
@@ -22,14 +39,14 @@ func New(config Config) (*Process, error) {
 		return nil, trace.Wrap(err)
 	}
 	if config.Debug {
-		spiffe.InitLoggerDebug()
+		identity.InitLoggerDebug()
 	} else {
-		spiffe.InitLoggerCLI()
+		identity.InitLoggerCLI()
 	}
 	return &Process{
 		Config:  config,
-		Entry:   log.WithFields(log.Fields{trace.Component: spiffe.ComponentSPIFFE}),
-		adminID: spiffe.MustParseID(spiffe.AdminID),
+		Entry:   log.WithFields(log.Fields{trace.Component: constants.ComponentSPIFFE}),
+		adminID: identity.MustParseID(constants.AdminID),
 	}, nil
 }
 
@@ -38,7 +55,7 @@ type Process struct {
 	*log.Entry
 	backend      *etcdv2.Backend
 	localService workload.Service
-	adminID      spiffe.ID
+	adminID      identity.ID
 }
 
 func (p *Process) initLocalAdminCreds(ctx context.Context) error {
@@ -48,16 +65,16 @@ func (p *Process) initLocalAdminCreds(ctx context.Context) error {
 	renewer, err := workload.NewRenewer(workload.RenewerConfig{
 		Clock: clockwork.NewRealClock(),
 		Entry: log.WithFields(log.Fields{
-			trace.Component: spiffe.ComponentSPIFFE,
+			trace.Component: constants.ComponentSPIFFE,
 			"id":            p.adminID,
 		}),
 		Template: workload.CertificateRequestTemplate{
-			CertAuthorityID: spiffe.AdminOrg,
+			CertAuthorityID: constants.AdminOrg,
 			ID:              p.adminID,
 			Subject: pkix.Name{
 				CommonName: p.AdvertiseHostname,
 			},
-			TTL: spiffe.DefaultLocalCertTTL,
+			TTL: constants.DefaultLocalCertTTL,
 		},
 		ReadKey: func() ([]byte, error) {
 			return ReadPath(keyPath)
@@ -66,10 +83,10 @@ func (p *Process) initLocalAdminCreds(ctx context.Context) error {
 			return ReadPath(certPath)
 		},
 		WriteKey: func(data []byte) error {
-			return WritePath(keyPath, data, spiffe.DefaultPrivateFileMask)
+			return WritePath(keyPath, data, constants.DefaultPrivateFileMask)
 		},
 		WriteCert: func(data []byte) error {
-			return WritePath(certPath, data, spiffe.DefaultPrivateFileMask)
+			return WritePath(certPath, data, constants.DefaultPrivateFileMask)
 		},
 		Signer: p.localService,
 	})
@@ -90,18 +107,18 @@ func (p *Process) initLocalService(ctx context.Context) error {
 	p.localService = workload.NewService(p.backend, nil)
 
 	// init local certificate authority used for node communications
-	_, err := p.localService.GetCertAuthority(ctx, spiffe.AdminOrg)
+	_, err := p.localService.GetCertAuthority(ctx, constants.AdminOrg)
 	if err != nil {
 		if !trace.IsNotFound(err) {
 			return trace.Wrap(err)
 		}
 		log.Infof("setting up Admin cert authority")
-		keyPEM, certPEM, err := spiffe.GenerateSelfSignedCA(pkix.Name{
-			CommonName:   spiffe.AdminOrg,
-			Organization: []string{spiffe.AdminOrg},
-		}, nil, spiffe.DefaultCATTL)
+		keyPEM, certPEM, err := identity.GenerateSelfSignedCA(pkix.Name{
+			CommonName:   constants.AdminOrg,
+			Organization: []string{constants.AdminOrg},
+		}, nil, constants.DefaultCATTL)
 		err = p.localService.CreateCertAuthority(ctx, workload.CertAuthority{
-			ID:         spiffe.AdminOrg,
+			ID:         constants.AdminOrg,
 			Cert:       certPEM,
 			PrivateKey: keyPEM,
 		})
@@ -110,7 +127,7 @@ func (p *Process) initLocalService(ctx context.Context) error {
 				return trace.Wrap(err)
 			}
 		}
-		if _, err = p.localService.GetCertAuthority(ctx, spiffe.AdminOrg); err != nil {
+		if _, err = p.localService.GetCertAuthority(ctx, constants.AdminOrg); err != nil {
 			return trace.Wrap(err)
 		}
 	}

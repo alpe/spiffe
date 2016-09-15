@@ -190,3 +190,48 @@ func (r *Renewer) Renew(ctx context.Context) error {
 	}
 	return nil
 }
+
+// SetAdminPermissions sets admin permissions for identity ID
+func SetAdminPermissions(ctx context.Context, service Permissions, id identity.ID, signTTL time.Duration) error {
+	permissions := []Permission{
+		// authorities
+		{ID: id, Action: ActionUpsert, Collection: CollectionCertAuthorities},
+		{ID: id, Action: ActionRead, Collection: CollectionCertAuthorities},
+		{ID: id, Action: ActionDelete, Collection: CollectionCertAuthorities},
+
+		// workloads
+		{ID: id, Action: ActionUpsert, Collection: CollectionWorkloads},
+		{ID: id, Action: ActionRead, Collection: CollectionWorkloads},
+		{ID: id, Action: ActionDelete, Collection: CollectionWorkloads},
+
+		// root bundles
+		{ID: id, Action: ActionUpsert, Collection: CollectionTrustedRootBundles},
+		{ID: id, Action: ActionRead, Collection: CollectionTrustedRootBundles},
+		{ID: id, Action: ActionDelete, Collection: CollectionTrustedRootBundles},
+
+		// permissions
+		{ID: id, Action: ActionUpsert, Collection: CollectionPermissions},
+		{ID: id, Action: ActionRead, Collection: CollectionPermissions},
+		{ID: id, Action: ActionDelete, Collection: CollectionPermissions},
+
+		// sign permissions
+		{ID: id, Action: ActionUpsert, Collection: CollectionSignPermissions},
+		{ID: id, Action: ActionRead, Collection: CollectionSignPermissions},
+		{ID: id, Action: ActionDelete, Collection: CollectionSignPermissions},
+	}
+	for _, p := range permissions {
+		if err := service.UpsertPermission(ctx, p); err != nil {
+			return trace.Wrap(err)
+		}
+	}
+
+	signPermissions := []SignPermission{
+		{ID: id, MaxTTL: signTTL},
+	}
+	for _, sp := range signPermissions {
+		if err := service.UpsertSignPermission(ctx, sp); err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	return nil
+}

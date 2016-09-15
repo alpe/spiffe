@@ -54,4 +54,14 @@ const (
 
 	// DefalutPrivateFileMask is for private non executable files
 	DefaultPrivateFileMask os.FileMode = 0600
+
+	// AdminKeyFilename is a filename of admin's certificate private key
+	AdminKeyFilename = "admin.pem"
+	// AdminCertFilename is a filename of admin's certificate
+	AdminCertFilename = "admin.cert"
+	// AdminCertFilename is a filename of certificate authority signed the cert
+	AdminCertCAFilename = "admin-ca.cert"
+
+	// DefaultDialTimeout sets default timeout for dialing some RPC endpoint
+	DefaultDialTimeout = 30 * time.Second
 )

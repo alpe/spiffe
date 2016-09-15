@@ -59,8 +59,8 @@ type Process struct {
 }
 
 func (p *Process) initLocalAdminCreds(ctx context.Context) error {
-	keyPath := filepath.Join(p.StateDir, "admin.pem")
-	certPath := filepath.Join(p.StateDir, "admin.cert")
+	keyPath := filepath.Join(p.StateDir, constants.AdminKeyFilename)
+	certPath := filepath.Join(p.StateDir, constants.AdminCertFilename)
 	// start new renewer process
 	renewer, err := workload.NewRenewer(workload.RenewerConfig{
 		Clock: clockwork.NewRealClock(),
@@ -107,7 +107,7 @@ func (p *Process) initLocalService(ctx context.Context) error {
 	p.localService = workload.NewService(p.backend, nil)
 
 	// init local certificate authority used for node communications
-	_, err := p.localService.GetCertAuthority(ctx, constants.AdminOrg)
+	ca, err := p.localService.GetCertAuthority(ctx, constants.AdminOrg)
 	if err != nil {
 		if !trace.IsNotFound(err) {
 			return trace.Wrap(err)
@@ -131,7 +131,8 @@ func (p *Process) initLocalService(ctx context.Context) error {
 			return trace.Wrap(err)
 		}
 	}
-	return nil
+	caPath := filepath.Join(p.StateDir, constants.AdminCertCAFilename)
+	return WritePath(caPath, ca.Cert, constants.DefaultPrivateFileMask)
 }
 
 func (p *Process) startService(ctx context.Context) error {

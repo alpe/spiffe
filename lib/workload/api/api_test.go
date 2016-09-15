@@ -151,51 +151,15 @@ func (s *RPCSuite) SetUpTest(c *C) {
 		grpc.WithTimeout(time.Second))
 	c.Assert(err, IsNil)
 
-	client, err := NewClient(NewServiceClient(s.conn))
+	client, err := NewClient(s.conn)
 	c.Assert(err, IsNil)
 
 	s.suite.S = client
 	s.suite.C = client
 	s.suite.Clock = s.backend.Clock
 
-	permissions := []workload.Permission{
-		// authorities
-		{ID: suite.AliceID, Action: workload.ActionUpsert, Collection: workload.CollectionCertAuthorities},
-		{ID: suite.AliceID, Action: workload.ActionRead, Collection: workload.CollectionCertAuthorities},
-		{ID: suite.AliceID, Action: workload.ActionDelete, Collection: workload.CollectionCertAuthorities},
-
-		// workloads
-		{ID: suite.AliceID, Action: workload.ActionUpsert, Collection: workload.CollectionWorkloads},
-		{ID: suite.AliceID, Action: workload.ActionRead, Collection: workload.CollectionWorkloads},
-		{ID: suite.AliceID, Action: workload.ActionDelete, Collection: workload.CollectionWorkloads},
-
-		// root bundles
-		{ID: suite.AliceID, Action: workload.ActionUpsert, Collection: workload.CollectionTrustedRootBundles},
-		{ID: suite.AliceID, Action: workload.ActionRead, Collection: workload.CollectionTrustedRootBundles},
-		{ID: suite.AliceID, Action: workload.ActionDelete, Collection: workload.CollectionTrustedRootBundles},
-
-		// permissions
-		{ID: suite.AliceID, Action: workload.ActionUpsert, Collection: workload.CollectionPermissions},
-		{ID: suite.AliceID, Action: workload.ActionRead, Collection: workload.CollectionPermissions},
-		{ID: suite.AliceID, Action: workload.ActionDelete, Collection: workload.CollectionPermissions},
-
-		// sign permissions
-		{ID: suite.AliceID, Action: workload.ActionUpsert, Collection: workload.CollectionSignPermissions},
-		{ID: suite.AliceID, Action: workload.ActionRead, Collection: workload.CollectionSignPermissions},
-		{ID: suite.AliceID, Action: workload.ActionDelete, Collection: workload.CollectionSignPermissions},
-	}
-	for _, p := range permissions {
-		err = s.backend.Backend.UpsertPermission(context.TODO(), p)
-		c.Assert(err, IsNil)
-	}
-
-	signPermissions := []workload.SignPermission{
-		{ID: suite.AliceID, CertAuthorityID: "example.com", Org: "*.example.com", MaxTTL: 24 * time.Hour},
-	}
-	for _, sp := range signPermissions {
-		err = s.backend.Backend.UpsertSignPermission(context.TODO(), sp)
-		c.Assert(err, IsNil)
-	}
+	err = workload.SetAdminPermissions(context.TODO(), s.backend.Backend, suite.AliceID, 24*time.Hour)
+	c.Assert(err, IsNil)
 }
 
 func (s *RPCSuite) TestWorkloadsCRUD(c *C) {

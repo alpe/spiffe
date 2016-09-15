@@ -30,16 +30,22 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-func NewClient(client ServiceClient) (*Client, error) {
-	if client == nil {
-		return nil, trace.BadParameter("missing parameter service")
+func NewClient(conn *grpc.ClientConn) (*Client, error) {
+	if conn == nil {
+		return nil, trace.BadParameter("missing parameter conn")
 	}
-	return &Client{Client: client}, nil
+	return &Client{Client: NewServiceClient(conn), conn: conn}, nil
 }
 
 // Client is GRPC based Workload service client
 type Client struct {
 	Client ServiceClient
+	conn   *grpc.ClientConn
+}
+
+// Close closes underlying connection
+func (c *Client) Close() error {
+	return c.conn.Close()
 }
 
 // ProcessCertificateRequest process x509 CSR to sign with particular TTL and specifies which CertificateAuthority to use

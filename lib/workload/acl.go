@@ -73,13 +73,22 @@ func (a *ACL) ProcessCertificateRequest(ctx context.Context, req CertificateRequ
 		return nil, trace.Wrap(err)
 	}
 
-	permission, err := a.Auth.GetSignPermission(ctx, SignPermission{
-		CertAuthorityID: req.CertAuthorityID,
-		Org:             csr.Subject.CommonName,
-	})
+	// first check if this user has a "blank" sign all permission (admin)
+	permission, err := a.Auth.GetSignPermission(ctx, SignPermission{})
 	if err != nil {
-		return nil, trace.Wrap(err)
+		if !trace.IsNotFound(err) {
+			return nil, trace.Wrap(err)
+		}
+		// check for specific sign permission
+		permission, err = a.Auth.GetSignPermission(ctx, SignPermission{
+			CertAuthorityID: req.CertAuthorityID,
+			Org:             csr.Subject.CommonName,
+		})
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
+
 	if permission.MaxTTL < req.TTL {
 		return nil, trace.BadParameter("%v exceeds allowed value of %v", req.TTL, permission.MaxTTL)
 	}

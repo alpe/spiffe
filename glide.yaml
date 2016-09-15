@@ -1,0 +1,35 @@
+package: github.com/spiffe/spiffe
+import:
+- package: github.com/Sirupsen/logrus
+  subpackages:
+  - hooks/syslog
+- package: github.com/coreos/etcd
+  subpackages:
+  - client
+  - pkg/transport
+- package: github.com/golang/protobuf
+  subpackages:
+  - proto
+  - ptypes/empty
+- package: github.com/gravitational/trace
+  subpackages:
+  - trail
+- package: github.com/grpc-ecosystem/grpc-gateway
+  subpackages:
+  - runtime
+  - third_party/googleapis/google/api
+  - utilities
+- package: github.com/jonboulle/clockwork
+- package: golang.org/x/net
+  subpackages:
+  - context
+- package: google.golang.org/grpc
+  subpackages:
+  - codes
+  - credentials
+  - grpclog
+  - metadata
+  - peer
+- package: gopkg.in/alecthomas/kingpin.v2
+- package: gopkg.in/check.v1
+- package: gopkg.in/yaml.v2

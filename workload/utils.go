@@ -82,16 +82,50 @@ type RenewerConfig struct {
 	Entry *log.Entry
 }
 
+// Renewer takes care of certificate periodic renewal - it monitors
+// certificates TTL and requests new certificates when they are about to
+// expire.
 type Renewer struct {
 	*log.Entry
 	RenewerConfig
 }
 
+// NewRenewer returns new instance of renewer
 func NewRenewer(config RenewerConfig) (*Renewer, error) {
 	return &Renewer{
 		RenewerConfig: config,
 		Entry:         config.Entry,
 	}, nil
+}
+
+func (r *Renewer) tickPeriod() time.Duration {
+	return (r.Template.TTL * 3) / 4
+}
+
+func (r *Renewer) renewTrigger() time.Duration {
+	return r.Template.TTL / 2
+}
+
+// Start starts renewer procedure, it is a blocking call,
+// to cancel, simply use context cancelling ability
+func (r *Renewer) Start(ctx context.Context) error {
+	err := r.Renew(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	ticker := time.NewTicker(r.tickPeriod())
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			err := r.Renew(ctx)
+			if err != nil {
+				return trace.Wrap(err)
+			}
+		case <-ctx.Done():
+			r.Debugf("context is closing, returning")
+		}
+	}
 }
 
 func (r *Renewer) Renew(ctx context.Context) error {
@@ -121,12 +155,12 @@ func (r *Renewer) Renew(ctx context.Context) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		diff := r.Clock.Now().Sub(cert.NotAfter)
-		if diff > r.Template.TTL/10 {
-			r.Debugf("cert is present and expires in %v, still good", cert.NotAfter)
+		diff := cert.NotAfter.Sub(r.Clock.Now())
+		if diff > r.renewTrigger() {
+			r.Debugf("cert is present and expires %v (in %v), still good", cert.NotAfter, diff)
 			return nil
 		} else {
-			r.Debugf("cert is present, but expires in %v")
+			r.Debugf("cert is present, but expires %v (in %v)", cert.NotAfter, diff)
 		}
 	}
 

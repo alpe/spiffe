@@ -76,7 +76,13 @@ func (p *Process) initLocalAdminCreds(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return renewer.Renew(ctx)
+	go func() {
+		err := renewer.Start(ctx)
+		if err != nil {
+			log.Error(trace.DebugReport(err))
+		}
+	}()
+	return nil
 }
 
 // initLocalService initialises local SPIFFE service using ETCD backend

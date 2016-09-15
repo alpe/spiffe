@@ -30,7 +30,7 @@ install:
 
 # run runs local dev server
 .PHONY: run
-run: install
+run: install test-etcd
 	spiffe --config=./fixtures/local.yaml
 
 # send sends test message

@@ -122,6 +122,26 @@ func (a *ACL) GetCertAuthority(ctx context.Context, id string) (*CertAuthority, 
 	return a.Service.GetCertAuthority(ctx, id)
 }
 
+// GetCertAuthorityCert returns Certificate Authority (only certificate) by it's ID
+func (a *ACL) GetCertAuthorityCert(ctx context.Context, id string) (*CertAuthority, error) {
+	if err := a.checkPermission(ctx, ActionReadPublic, CollectionCertAuthorities, id); err != nil {
+		if err := a.checkPermission(ctx, ActionRead, CollectionCertAuthorities, id); err != nil {
+			return nil, trace.Wrap(err)
+		}
+	}
+	return a.Service.GetCertAuthorityCert(ctx, id)
+}
+
+// GetCertAuthoritiesCerts returns Certificate Authority (only certificate) list
+func (a *ACL) GetCertAuthoritiesCerts(ctx context.Context) ([]CertAuthority, error) {
+	if err := a.checkPermission(ctx, ActionReadPublic, CollectionCertAuthorities, ""); err != nil {
+		if err := a.checkPermission(ctx, ActionRead, CollectionCertAuthorities, ""); err != nil {
+			return nil, trace.Wrap(err)
+		}
+	}
+	return a.Service.GetCertAuthoritiesCerts(ctx)
+}
+
 // DeleteCertAuthority deletes Certificate Authority by ID
 func (a *ACL) DeleteCertAuthority(ctx context.Context, id string) error {
 	if err := a.checkPermission(ctx, ActionDelete, CollectionCertAuthorities, id); err != nil {
@@ -138,6 +158,14 @@ func (a *ACL) CreateTrustedRootBundle(ctx context.Context, bundle TrustedRootBun
 	return a.Service.CreateTrustedRootBundle(ctx, bundle)
 }
 
+// UpsertTrustedRootBundle creates or updates trusted root certificate bundle
+func (a *ACL) UpsertTrustedRootBundle(ctx context.Context, bundle TrustedRootBundle) error {
+	if err := a.checkPermission(ctx, ActionUpsert, CollectionTrustedRootBundles, bundle.ID); err != nil {
+		return trace.Wrap(err)
+	}
+	return a.Service.UpsertTrustedRootBundle(ctx, bundle)
+}
+
 // GetTrustedRoot returns trusted root certificate by its ID
 func (a *ACL) GetTrustedRootBundle(ctx context.Context, id string) (*TrustedRootBundle, error) {
 	if err := a.checkPermission(ctx, ActionRead, CollectionTrustedRootBundles, id); err != nil {
@@ -152,6 +180,14 @@ func (a *ACL) DeleteTrustedRootBundle(ctx context.Context, id string) error {
 		return trace.Wrap(err)
 	}
 	return a.Service.DeleteTrustedRootBundle(ctx, id)
+}
+
+// GetTrustedRootBundles returns a list of trusted root bundles
+func (a *ACL) GetTrustedRootBundles(ctx context.Context) ([]TrustedRootBundle, error) {
+	if err := a.checkPermission(ctx, ActionRead, CollectionTrustedRootBundles, ""); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return a.Service.GetTrustedRootBundles(ctx)
 }
 
 // UpsertWorkload update existing or insert new workload
@@ -178,12 +214,28 @@ func (a *ACL) GetWorkload(ctx context.Context, id string) (*Workload, error) {
 	return a.Service.GetWorkload(ctx, id)
 }
 
+// GetWorkloads returns workloads
+func (a *ACL) GetWorkloads(ctx context.Context) ([]Workload, error) {
+	if err := a.checkPermission(ctx, ActionRead, CollectionWorkloads, ""); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return a.Service.GetWorkloads(ctx)
+}
+
 // Subscribe returns a stream of events associated with given workload IDs
 // if you wish to cancel the stream, use ctx.Close
 // eventC will be closed by Subscribe function on errors or
 // cancelled subscribe
-func (a *ACL) Subscribe(ctx context.Context, eventC chan *WorkloadEvent) error {
+func (a *ACL) Subscribe(ctx context.Context, eventC chan *Event) error {
 	if err := a.checkPermission(ctx, ActionRead, CollectionWorkloads, ""); err != nil {
+		return trace.Wrap(err)
+	}
+	if err := a.checkPermission(ctx, ActionRead, CollectionCertAuthorities, ""); err != nil {
+		if err := a.checkPermission(ctx, ActionReadPublic, CollectionCertAuthorities, ""); err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	if err := a.checkPermission(ctx, ActionRead, CollectionTrustedRootBundles, ""); err != nil {
 		return trace.Wrap(err)
 	}
 	return a.Service.Subscribe(ctx, eventC)

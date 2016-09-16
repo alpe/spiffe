@@ -80,15 +80,23 @@ type Authorities interface {
 	UpsertCertAuthority(ctx context.Context, ca CertAuthority) error
 	// GetCertAuthority returns Certificate Authority by given ID
 	GetCertAuthority(ctx context.Context, id string) (*CertAuthority, error)
+	// GetCertAuthorityCert returns Certificate Authority (only certificate) by it's ID
+	GetCertAuthorityCert(ctx context.Context, id string) (*CertAuthority, error)
 	// DeleteCertAuthority deletes Certificate Authority by ID
 	DeleteCertAuthority(ctx context.Context, id string) error
+	// GetCertAuthoritiesCerts returns a list of certificate authorities
+	GetCertAuthoritiesCerts(ctx context.Context) ([]CertAuthority, error)
 }
 
 // TrustedRootBundle is a collection of trusted roots grouped together
 // lots of certs are grouped together
 type TrustedRootBundle struct {
-	ID    string
+	// ID is id of the trusted root bundle
+	ID string
+	// Certs is a list of external certificates to trust
 	Certs []TrustedRootCert
+	// CertAuthorityIDs is a list of certificate authorities to trust
+	CertAuthorityIDs []string
 }
 
 // Check checks root bundle
@@ -140,10 +148,14 @@ func (r *TrustedRootCert) Check() error {
 type TrustedRootBundles interface {
 	// CreateTrustedRootBundle creates trusted root certificate bundle
 	CreateTrustedRootBundle(ctx context.Context, bundle TrustedRootBundle) error
+	// UpsertTrustedRootBundle creates or updates trusted root certificate bundle
+	UpsertTrustedRootBundle(ctx context.Context, bundle TrustedRootBundle) error
 	// GetTrustedRoot returns trusted root certificate by its ID
 	GetTrustedRootBundle(ctx context.Context, id string) (*TrustedRootBundle, error)
 	// DeleteTrustedRootBundle deletes TrustedRoot by its ID
 	DeleteTrustedRootBundle(ctx context.Context, id string) error
+	// GetTrustedRootBundles returns a list of trusted root bundles
+	GetTrustedRootBundles(ctx context.Context) ([]TrustedRootBundle, error)
 }
 
 // ScopedID represents SPIFFE ID with attached
@@ -185,22 +197,43 @@ func (w *Workload) Check() error {
 	return nil
 }
 
-// WorkloadEvent represents any change to a given workload
-type WorkloadEvent struct {
+// Event represents a change on either workload, certificate authority or trusted root bundle
+type Event struct {
 	// ID is a unique workload ID
 	ID string
-	// Type is event type, see `EventWorkload*` family of events for details
+	// Type is event type, see `EventTypeWorkload*` group of events
 	Type string
-	// In case if workload was updated, will contain the new version
+	// Action specifies action on the element, see `EventAction*`  group of events
+	Action string
+	// Workload, In case if workload was updated, will contain the new version
 	Workload *Workload
+	// TrustedRootBundle will be populated if it was updated
+	Bundle *TrustedRootBundle
+	// CertAuthority will contain only public certificate of the updated authority
+	CertAuthority *CertAuthority
 }
 
 const (
-	// EventWorkloadUpdated - workload has been updated on the server
-	EventWorkloadUpdated = "WorkloadUpdated"
-	// EventWorkloadDeleted - workload has been deleted from the server
-	EventWorkloadDeleted = "WorkloadDeleted"
+	// EventTypeWorkload indicates that this is event about workload
+	EventTypeWorkload = "EventWorkload"
+	// EventTypeWorkload indicates that this is event about trusted root bundle
+	EventTypeTrustedRootBundle = "EventTrustedRootBundle"
+	// EventTypeCertAuthority indicates that this event about certificate authority
+	EventTypeCertAuthority = "EventCertAuthority"
+	// EventActionUpdated - element has been updated on the server
+	EventActionUpdated = "Updated"
+	// EventActionDeleted - element has been deleted from the server
+	EventActionDeleted = "Deleted"
 )
+
+// Subscriber adds ability to subscribe to a list of events with cluster updates
+type Subscriber interface {
+	// Subscribe returns a stream of events associated with given workload IDs
+	// if you wish to cancel the stream, use ctx.Close
+	// eventC will be closed by Subscribe function on errors or
+	// cancelled subscribe
+	Subscribe(ctx context.Context, eventC chan *Event) error
+}
 
 // Workloads is a SPIFFE workload API
 type Workloads interface {
@@ -210,11 +243,8 @@ type Workloads interface {
 	DeleteWorkload(ctx context.Context, ID string) error
 	// GetWorkload returns workload identified by ID
 	GetWorkload(ctx context.Context, ID string) (*Workload, error)
-	// Subscribe returns a stream of events associated with given workload IDs
-	// if you wish to cancel the stream, use ctx.Close
-	// eventC will be closed by Subscribe function on errors or
-	// cancelled subscribe
-	Subscribe(ctx context.Context, eventC chan *WorkloadEvent) error
+	// GetWorkloads returns a list of workloads in the system
+	GetWorkloads(ctx context.Context) ([]Workload, error)
 }
 
 // CertificateRequest is a request to sign particular certificate
@@ -324,9 +354,16 @@ func (p *Permission) Check() error {
 }
 
 const (
-	ActionRead   = "read"
+	// ActionRead lets to read all the data, private and public
+	ActionRead = "read"
+	// ActionReadPublic lets to read only public parts of some data, e.g. certificates
+	// of certificate authorities, not their private keys
+	ActionReadPublic = "readpub"
+	// ActionUpsert allows to upsert elements - create and update them
 	ActionUpsert = "upsert"
+	// ActionCreate allows to create elements
 	ActionCreate = "create"
+	// ActionDelete allows to delete elements
 	ActionDelete = "delete"
 )
 
@@ -335,7 +372,7 @@ const (
 	CollectionWorkloads = "workloads"
 	// CollectionTrustedRootBundles is a collection with trusted root certificate bundles
 	CollectionTrustedRootBundles = "rootbundles"
-	// CollectionCertAuthorities is a collection with certificate
+	// CollectionCertAuthorities is a collection with certificate authorities
 	CollectionCertAuthorities = "authorities"
 	// CollectionPermissions controls collection with permissions
 	CollectionPermissions = "permissions"
@@ -386,6 +423,7 @@ type Collections interface {
 	TrustedRootBundles
 	Authorities
 	Workloads
+	Subscriber
 }
 
 // Service is a full implementaion of workload service

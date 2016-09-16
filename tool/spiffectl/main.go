@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/spiffe/spiffe/lib/constants"
@@ -36,9 +37,17 @@ func run() error {
 		certPath   = app.Flag("cert-file", "Path to client certificate file").Default(filepath.Join(constants.DefaultStateDir, constants.AdminCertFilename)).ExistingFile()
 		keyPath    = app.Flag("key-file", "Path to client private key file").Default(filepath.Join(constants.DefaultStateDir, constants.AdminKeyFilename)).ExistingFile()
 		caPath     = app.Flag("ca-file", "Path to client certificate authority cert file").Default(filepath.Join(constants.DefaultStateDir, constants.AdminCertCAFilename)).ExistingFile()
+
+		cbundles              = app.Command("bundle", "operations on trusted root certificate bundles")
+		cbundlesList          = cbundles.Command("ls", "list trusted root certificate bundles")
+		cbundlesCreate        = cbundles.Command("create", "create trusted root certificate bundles")
+		cbundlesCreateReplace = cbundlesCreate.Flag("replace", "replace bundle if it exists").Bool()
+		cbundlesCreateID      = cbundlesCreate.Flag("id", "unique bundle id").Required().String()
+		cbundlesCreateDirs    = cbundlesCreate.Flag("directory", "import certificates from directory").Strings()
+		cbundlesCreateCAIDs   = cbundlesCreate.Flag("caid", "use existing certificate authority id").Strings()
 	)
 
-	_, err := app.Parse(os.Args[1:])
+	cmd, err := app.Parse(os.Args[1:])
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -84,10 +93,16 @@ func run() error {
 		}
 	}()
 
-	out, err := client.GetCertAuthority(ctx, constants.AdminOrg)
-	if err != nil {
-		return trace.Wrap(err)
+	switch cmd {
+	case cbundlesList.FullCommand():
+		return bundlesList(ctx, client)
+	case cbundlesCreate.FullCommand():
+		return bundleCreate(ctx, client, *cbundlesCreateReplace, *cbundlesCreateID, *cbundlesCreateDirs, *cbundlesCreateCAIDs)
 	}
-	fmt.Printf("* %v\n", out.ID)
-	return nil
+
+	return trace.BadParameter("unsupported command: %v", cmd)
+}
+
+func printHeader(val string) {
+	fmt.Printf("\n[%v]\n%v\n", val, strings.Repeat("-", len(val)+2))
 }

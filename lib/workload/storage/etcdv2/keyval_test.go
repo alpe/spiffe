@@ -51,7 +51,6 @@ func (s *ESuite) SetUpTest(c *C) {
 	}
 
 	var err error
-	log.Info(os.Getenv(constants.TestETCDConfig))
 	s.backend, err = NewTemp(os.Getenv(constants.TestETCDConfig))
 	c.Assert(err, IsNil)
 

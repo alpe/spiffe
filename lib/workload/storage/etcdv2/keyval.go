@@ -19,6 +19,7 @@ package etcdv2
 
 import (
 	"encoding/json"
+	"sort"
 	"strings"
 	"time"
 
@@ -83,6 +84,16 @@ func (b *Backend) UpsertCertAuthority(ctx context.Context, w workload.CertAuthor
 	return trace.Wrap(convertErr(err))
 }
 
+// GetCertAuthorityCert returns Certificate Authority (only certificate) by it's ID
+func (b *Backend) GetCertAuthorityCert(ctx context.Context, id string) (*workload.CertAuthority, error) {
+	ca, err := b.GetCertAuthority(ctx, id)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	ca.PrivateKey = nil
+	return ca, nil
+}
+
 // GetCertAuthority returns Certificate Authority by given ID
 func (b *Backend) GetCertAuthority(ctx context.Context, id string) (*workload.CertAuthority, error) {
 	if id == "" {
@@ -98,6 +109,23 @@ func (b *Backend) GetCertAuthority(ctx context.Context, id string) (*workload.Ce
 		return nil, trace.Wrap(err)
 	}
 	return &ca, nil
+}
+
+// GetCertAuthoritiesCerts returns a list of certificate authorities (only public part
+func (b *Backend) GetCertAuthoritiesCerts(ctx context.Context) ([]workload.CertAuthority, error) {
+	ids, err := b.getKeys(ctx, b.key(authoritiesP))
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	var out []workload.CertAuthority
+	for _, id := range ids {
+		ca, err := b.GetCertAuthorityCert(ctx, id)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		out = append(out, *ca)
+	}
+	return out, nil
 }
 
 // DeleteCertAuthority deletes Certificate Authority by ID
@@ -151,6 +179,43 @@ func (b *Backend) GetWorkload(ctx context.Context, id string) (*workload.Workloa
 	return &w, nil
 }
 
+// GetWorkloads returns a list of workloads
+func (b *Backend) GetWorkloads(ctx context.Context) ([]workload.Workload, error) {
+	ids, err := b.getKeys(ctx, b.key(workloadsP))
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	var out []workload.Workload
+	for _, id := range ids {
+		w, err := b.GetWorkload(ctx, id)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		out = append(out, *w)
+	}
+	return out, nil
+}
+
+func (b *Backend) getKeys(ctx context.Context, key string) ([]string, error) {
+	var vals []string
+	re, err := b.keys.Get(ctx, key, nil)
+	err = convertErr(err)
+	if err != nil {
+		if trace.IsNotFound(err) {
+			return vals, nil
+		}
+		return nil, trace.Wrap(err)
+	}
+	if !isDir(re.Node) {
+		return nil, trace.BadParameter("'%v': expected directory", key)
+	}
+	for _, n := range re.Node.Nodes {
+		vals = append(vals, suffix(n.Key))
+	}
+	sort.Sort(sort.StringSlice(vals))
+	return vals, nil
+}
+
 func (b *Backend) getWatchAtLatestIndex(ctx context.Context, key string) (etcd.Watcher, *etcd.Response, error) {
 	re, err := b.keys.Get(ctx, key, nil)
 	err = convertErr(err)
@@ -201,55 +266,126 @@ func unmarshal(data string, val interface{}) error {
 	return nil
 }
 
-func processWorkloadEvent(ctx context.Context, prefix string, re *etcd.Response, eventsC chan *workload.WorkloadEvent) {
-	// set, delete, update, create, compareAndSwap, compareAndDelete and expire.
-	if !strings.HasPrefix(re.Node.Key, prefix) {
-		log.Debugf("skipping non-workload event: %v", re.Node.Key)
-		return
+func oneOf(b string, actions []string) bool {
+	for _, a := range actions {
+		if a == b {
+			return true
+		}
 	}
-	workloadID := strings.TrimPrefix(re.Node.Key, prefix+"/")
-	if strings.Contains(workloadID, "/") {
-		log.Debugf("skipping non-workload event: %v", re.Node.Key)
-		return
-	}
-	var event *workload.WorkloadEvent
-	switch re.Action {
-	case "delete", "expire", "compareAndDelete":
-		event = &workload.WorkloadEvent{
-			ID:   workloadID,
-			Type: workload.EventWorkloadDeleted,
+	return false
+}
+
+var deleteActions = []string{"delete", "expire", "compareAndDelete"}
+var updateActions = []string{"set", "update", "create", "compareAndSwap"}
+
+func (b *Backend) unmarshalEvent(ctx context.Context, re *etcd.Response) *workload.Event {
+	// workloads event
+	workloadsPrefix := b.key(workloadsP)
+	if strings.HasPrefix(re.Node.Key, workloadsPrefix) {
+		workloadID := strings.TrimPrefix(re.Node.Key, workloadsPrefix+"/")
+		if strings.Contains(workloadID, "/") {
+			log.Debugf("skipping non-workload event: %v", re.Node.Key)
+			return nil
 		}
-	case "set", "update", "create", "compareAndSwap":
-		var w workload.Workload
-		err := unmarshal(re.Node.Value, &w)
-		if err != nil {
-			log.Error(trace.DebugReport(err))
-			return
+		if oneOf(re.Action, deleteActions) {
+			return &workload.Event{
+				ID:     workloadID,
+				Type:   workload.EventTypeWorkload,
+				Action: workload.EventActionDeleted,
+			}
 		}
-		event = &workload.WorkloadEvent{
-			ID:       workloadID,
-			Type:     workload.EventWorkloadUpdated,
-			Workload: &w,
+		if oneOf(re.Action, updateActions) {
+			var w workload.Workload
+			err := unmarshal(re.Node.Value, &w)
+			if err != nil {
+				log.Error(trace.DebugReport(err))
+				return nil
+			}
+			return &workload.Event{
+				ID:       workloadID,
+				Type:     workload.EventTypeWorkload,
+				Action:   workload.EventActionUpdated,
+				Workload: &w,
+			}
 		}
-	default:
 		log.Debugf("unsupported event action: %v", re.Action)
-		return
+		return nil
 	}
-	select {
-	case eventsC <- event:
-		log.Infof("sent event %#v", event)
-	case <-ctx.Done():
-		log.Infof("client is closing")
-	default:
-		log.Warningf("blocked on sending to subscriber, possible deadlock")
+	// trusted root bundle event
+	bundlesPrefix := b.key(bundlesP)
+	if strings.HasPrefix(re.Node.Key, bundlesPrefix) {
+		bundleID := strings.TrimPrefix(re.Node.Key, bundlesPrefix+"/")
+		if strings.Contains(bundleID, "/") {
+			log.Debugf("skipping non-bundle event: %v", re.Node.Key)
+			return nil
+		}
+		if oneOf(re.Action, deleteActions) {
+			return &workload.Event{
+				ID:     bundleID,
+				Type:   workload.EventTypeTrustedRootBundle,
+				Action: workload.EventActionDeleted,
+			}
+		}
+		if oneOf(re.Action, updateActions) {
+			var bundle workload.TrustedRootBundle
+			err := unmarshal(re.Node.Value, &bundle)
+			if err != nil {
+				log.Error(trace.DebugReport(err))
+				return nil
+			}
+			return &workload.Event{
+				ID:     bundleID,
+				Type:   workload.EventTypeTrustedRootBundle,
+				Action: workload.EventActionUpdated,
+				Bundle: &bundle,
+			}
+		}
+		log.Debugf("unsupported event action: %v", re.Action)
+		return nil
 	}
+	// certificate authority
+	caPrefix := b.key(authoritiesP)
+	if strings.HasPrefix(re.Node.Key, caPrefix) {
+		caID := strings.TrimPrefix(re.Node.Key, caPrefix+"/")
+		if strings.Contains(caID, "/") {
+			log.Debugf("skipping non-cert-authoriteis event: %v", re.Node.Key)
+			return nil
+		}
+		if oneOf(re.Action, deleteActions) {
+			return &workload.Event{
+				ID:     caID,
+				Type:   workload.EventTypeCertAuthority,
+				Action: workload.EventActionDeleted,
+			}
+		}
+		if oneOf(re.Action, updateActions) {
+			var ca workload.CertAuthority
+			err := unmarshal(re.Node.Value, &ca)
+			if err != nil {
+				log.Error(trace.DebugReport(err))
+				return nil
+			}
+			ca.PrivateKey = nil
+			return &workload.Event{
+				ID:            caID,
+				Type:          workload.EventTypeCertAuthority,
+				Action:        workload.EventActionUpdated,
+				CertAuthority: &ca,
+			}
+		}
+		log.Debugf("unsupported event action: %v", re.Action)
+		return nil
+	}
+	log.Debugf("skipping unspupported event %v %v", re.Action, re.Node.Key)
+	return nil
 }
 
 // Subscribe returns a stream of events associated with given workload IDs
 // if you wish to cancel the stream, use ctx.Close
-func (b *Backend) Subscribe(ctx context.Context, eventC chan *workload.WorkloadEvent) error {
-	workloadsKey := b.key(workloadsP)
-	watcher, re, err := b.getWatchAtLatestIndex(ctx, workloadsKey)
+func (b *Backend) Subscribe(ctx context.Context, eventC chan *workload.Event) error {
+	baseKey := strings.Join(b.baseKey, "/")
+
+	watcher, re, err := b.getWatchAtLatestIndex(ctx, baseKey)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -262,10 +398,21 @@ func (b *Backend) Subscribe(ctx context.Context, eventC chan *workload.WorkloadE
 		for {
 			re, err = watcher.Next(ctx)
 			if err == nil {
-				log.Infof("processWorkloadEvent(%v,%v)", re.Action, re.Node.Key)
-				processWorkloadEvent(ctx, workloadsKey, re, eventC)
-			}
-			if err != nil {
+				log.Infof("processEvent(%v,%v)", re.Action, re.Node.Key)
+				event := b.unmarshalEvent(ctx, re)
+				if event != nil {
+					select {
+					case eventC <- event:
+						log.Infof("sent event(action=%v, type=%v, id=%v)", event.Action, event.Type, event.ID)
+					case <-ctx.Done():
+						log.Infof("client is closing")
+						return
+					default:
+						log.Warningf("blocked on sending to subscriber, possible deadlock")
+						return
+					}
+				}
+			} else {
 				select {
 				case <-ticker.C:
 					log.Infof("backoff on error %v", trace.DebugReport(err))
@@ -282,13 +429,13 @@ func (b *Backend) Subscribe(ctx context.Context, eventC chan *workload.WorkloadE
 					continue
 				} else if cerr, ok := err.(etcd.Error); ok && cerr.Code == etcd.ErrorCodeEventIndexCleared {
 					log.Infof("watch index error, resetting watch index: %v", cerr)
-					watcher, re, err = b.getWatchAtLatestIndex(ctx, workloadsKey)
+					watcher, re, err = b.getWatchAtLatestIndex(ctx, baseKey)
 					if err != nil {
 						continue
 					}
 				} else {
 					log.Errorf("unexpected watch error: %v", trace.DebugReport(err))
-					watcher, re, err = b.getWatchAtLatestIndex(ctx, workloadsKey)
+					watcher, re, err = b.getWatchAtLatestIndex(ctx, baseKey)
 					if err != nil {
 						continue
 					}
@@ -409,7 +556,23 @@ func (b *Backend) DeleteSignPermission(ctx context.Context, sp workload.SignPerm
 	return trace.Wrap(convertErr(err))
 }
 
-// CreateTrustedRootBundle creates trusted root certificate bundle
+// UpsertTrustedRootBundle creates or updates trusted root bundle
+func (b *Backend) UpsertTrustedRootBundle(ctx context.Context, bundle workload.TrustedRootBundle) error {
+	if err := bundle.Check(); err != nil {
+		return trace.Wrap(err)
+	}
+	val, err := marshal(bundle)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	_, err = b.keys.Set(ctx, b.key(bundlesP, bundle.ID), val, nil)
+	if err = convertErr(err); err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// CreateTrustedRootBundle creates trusted root certificate bundle if it does not exist yet
 func (b *Backend) CreateTrustedRootBundle(ctx context.Context, bundle workload.TrustedRootBundle) error {
 	if err := bundle.Check(); err != nil {
 		return trace.Wrap(err)
@@ -448,6 +611,23 @@ func (b *Backend) DeleteTrustedRootBundle(ctx context.Context, id string) error 
 	}
 	_, err := b.keys.Delete(ctx, b.key(bundlesP, id), nil)
 	return trace.Wrap(convertErr(err))
+}
+
+// GetTrustedRootBundles returns a list of trusted root bundles
+func (b *Backend) GetTrustedRootBundles(ctx context.Context) ([]workload.TrustedRootBundle, error) {
+	ids, err := b.getKeys(ctx, b.key(bundlesP))
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	var out []workload.TrustedRootBundle
+	for _, id := range ids {
+		b, err := b.GetTrustedRootBundle(ctx, id)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		out = append(out, *b)
+	}
+	return out, nil
 }
 
 func (b *Backend) key(prefix string, keys ...string) string {
@@ -544,4 +724,13 @@ func (b *Backend) permKey(p workload.Permission) (string, error) {
 	}
 	return b.key(
 		permissionsP, key.id, key.action, key.collection, key.collectionID), nil
+}
+
+func isDir(n *etcd.Node) bool {
+	return n != nil && n.Dir == true
+}
+
+func suffix(key string) string {
+	vals := strings.Split(key, "/")
+	return vals[len(vals)-1]
 }

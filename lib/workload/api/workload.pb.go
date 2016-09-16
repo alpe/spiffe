@@ -13,9 +13,12 @@
 		SearchResponse
 		CertificateResponse
 		CertAuthority
+		CertAuthorities
 		TrustedRootBundle
+		TrustedRootBundles
 		Workload
-		WorkloadEvent
+		Workloads
+		Event
 		Permission
 		SignPermission
 		ID
@@ -104,15 +107,32 @@ func (m *CertAuthority) String() string            { return proto.CompactTextStr
 func (*CertAuthority) ProtoMessage()               {}
 func (*CertAuthority) Descriptor() ([]byte, []int) { return fileDescriptorWorkload, []int{3} }
 
+type CertAuthorities struct {
+	CertAuthorities []*CertAuthority `protobuf:"bytes,1,rep,name=CertAuthorities,json=certAuthorities" json:"CertAuthorities,omitempty"`
+}
+
+func (m *CertAuthorities) Reset()                    { *m = CertAuthorities{} }
+func (m *CertAuthorities) String() string            { return proto.CompactTextString(m) }
+func (*CertAuthorities) ProtoMessage()               {}
+func (*CertAuthorities) Descriptor() ([]byte, []int) { return fileDescriptorWorkload, []int{4} }
+
+func (m *CertAuthorities) GetCertAuthorities() []*CertAuthority {
+	if m != nil {
+		return m.CertAuthorities
+	}
+	return nil
+}
+
 type TrustedRootBundle struct {
-	ID    string                               `protobuf:"bytes,1,opt,name=ID,json=iD,proto3" json:"ID,omitempty"`
-	Certs []*TrustedRootBundle_TrustedRootCert `protobuf:"bytes,2,rep,name=Certs,json=certs" json:"Certs,omitempty"`
+	ID               string                               `protobuf:"bytes,1,opt,name=ID,json=iD,proto3" json:"ID,omitempty"`
+	Certs            []*TrustedRootBundle_TrustedRootCert `protobuf:"bytes,2,rep,name=Certs,json=certs" json:"Certs,omitempty"`
+	CertAuthorityIDs []string                             `protobuf:"bytes,3,rep,name=CertAuthorityIDs,json=certAuthorityIDs" json:"CertAuthorityIDs,omitempty"`
 }
 
 func (m *TrustedRootBundle) Reset()                    { *m = TrustedRootBundle{} }
 func (m *TrustedRootBundle) String() string            { return proto.CompactTextString(m) }
 func (*TrustedRootBundle) ProtoMessage()               {}
-func (*TrustedRootBundle) Descriptor() ([]byte, []int) { return fileDescriptorWorkload, []int{4} }
+func (*TrustedRootBundle) Descriptor() ([]byte, []int) { return fileDescriptorWorkload, []int{5} }
 
 func (m *TrustedRootBundle) GetCerts() []*TrustedRootBundle_TrustedRootCert {
 	if m != nil {
@@ -131,7 +151,23 @@ func (m *TrustedRootBundle_TrustedRootCert) Reset()         { *m = TrustedRootBu
 func (m *TrustedRootBundle_TrustedRootCert) String() string { return proto.CompactTextString(m) }
 func (*TrustedRootBundle_TrustedRootCert) ProtoMessage()    {}
 func (*TrustedRootBundle_TrustedRootCert) Descriptor() ([]byte, []int) {
-	return fileDescriptorWorkload, []int{4, 0}
+	return fileDescriptorWorkload, []int{5, 0}
+}
+
+type TrustedRootBundles struct {
+	Bundles []*TrustedRootBundle `protobuf:"bytes,1,rep,name=Bundles,json=bundles" json:"Bundles,omitempty"`
+}
+
+func (m *TrustedRootBundles) Reset()                    { *m = TrustedRootBundles{} }
+func (m *TrustedRootBundles) String() string            { return proto.CompactTextString(m) }
+func (*TrustedRootBundles) ProtoMessage()               {}
+func (*TrustedRootBundles) Descriptor() ([]byte, []int) { return fileDescriptorWorkload, []int{6} }
+
+func (m *TrustedRootBundles) GetBundles() []*TrustedRootBundle {
+	if m != nil {
+		return m.Bundles
+	}
+	return nil
 }
 
 type Workload struct {
@@ -143,7 +179,7 @@ type Workload struct {
 func (m *Workload) Reset()                    { *m = Workload{} }
 func (m *Workload) String() string            { return proto.CompactTextString(m) }
 func (*Workload) ProtoMessage()               {}
-func (*Workload) Descriptor() ([]byte, []int) { return fileDescriptorWorkload, []int{5} }
+func (*Workload) Descriptor() ([]byte, []int) { return fileDescriptorWorkload, []int{7} }
 
 func (m *Workload) GetIdentities() []*Workload_ScopedID {
 	if m != nil {
@@ -161,22 +197,55 @@ type Workload_ScopedID struct {
 func (m *Workload_ScopedID) Reset()                    { *m = Workload_ScopedID{} }
 func (m *Workload_ScopedID) String() string            { return proto.CompactTextString(m) }
 func (*Workload_ScopedID) ProtoMessage()               {}
-func (*Workload_ScopedID) Descriptor() ([]byte, []int) { return fileDescriptorWorkload, []int{5, 0} }
+func (*Workload_ScopedID) Descriptor() ([]byte, []int) { return fileDescriptorWorkload, []int{7, 0} }
 
-type WorkloadEvent struct {
-	ID       string    `protobuf:"bytes,1,opt,name=ID,json=iD,proto3" json:"ID,omitempty"`
-	Type     string    `protobuf:"bytes,2,opt,name=Type,json=type,proto3" json:"Type,omitempty"`
-	Workload *Workload `protobuf:"bytes,3,opt,name=Workload,json=workload" json:"Workload,omitempty"`
+type Workloads struct {
+	Workloads []*Workload `protobuf:"bytes,1,rep,name=Workloads,json=workloads" json:"Workloads,omitempty"`
 }
 
-func (m *WorkloadEvent) Reset()                    { *m = WorkloadEvent{} }
-func (m *WorkloadEvent) String() string            { return proto.CompactTextString(m) }
-func (*WorkloadEvent) ProtoMessage()               {}
-func (*WorkloadEvent) Descriptor() ([]byte, []int) { return fileDescriptorWorkload, []int{6} }
+func (m *Workloads) Reset()                    { *m = Workloads{} }
+func (m *Workloads) String() string            { return proto.CompactTextString(m) }
+func (*Workloads) ProtoMessage()               {}
+func (*Workloads) Descriptor() ([]byte, []int) { return fileDescriptorWorkload, []int{8} }
 
-func (m *WorkloadEvent) GetWorkload() *Workload {
+func (m *Workloads) GetWorkloads() []*Workload {
+	if m != nil {
+		return m.Workloads
+	}
+	return nil
+}
+
+type Event struct {
+	ID            string             `protobuf:"bytes,1,opt,name=ID,json=iD,proto3" json:"ID,omitempty"`
+	Type          string             `protobuf:"bytes,2,opt,name=Type,json=type,proto3" json:"Type,omitempty"`
+	Action        string             `protobuf:"bytes,3,opt,name=Action,json=action,proto3" json:"Action,omitempty"`
+	Workload      *Workload          `protobuf:"bytes,4,opt,name=Workload,json=workload" json:"Workload,omitempty"`
+	Bundle        *TrustedRootBundle `protobuf:"bytes,5,opt,name=Bundle,json=bundle" json:"Bundle,omitempty"`
+	CertAuthority *CertAuthority     `protobuf:"bytes,6,opt,name=CertAuthority,json=certAuthority" json:"CertAuthority,omitempty"`
+}
+
+func (m *Event) Reset()                    { *m = Event{} }
+func (m *Event) String() string            { return proto.CompactTextString(m) }
+func (*Event) ProtoMessage()               {}
+func (*Event) Descriptor() ([]byte, []int) { return fileDescriptorWorkload, []int{9} }
+
+func (m *Event) GetWorkload() *Workload {
 	if m != nil {
 		return m.Workload
+	}
+	return nil
+}
+
+func (m *Event) GetBundle() *TrustedRootBundle {
+	if m != nil {
+		return m.Bundle
+	}
+	return nil
+}
+
+func (m *Event) GetCertAuthority() *CertAuthority {
+	if m != nil {
+		return m.CertAuthority
 	}
 	return nil
 }
@@ -191,7 +260,7 @@ type Permission struct {
 func (m *Permission) Reset()                    { *m = Permission{} }
 func (m *Permission) String() string            { return proto.CompactTextString(m) }
 func (*Permission) ProtoMessage()               {}
-func (*Permission) Descriptor() ([]byte, []int) { return fileDescriptorWorkload, []int{7} }
+func (*Permission) Descriptor() ([]byte, []int) { return fileDescriptorWorkload, []int{10} }
 
 type SignPermission struct {
 	ID              string `protobuf:"bytes,1,opt,name=ID,json=iD,proto3" json:"ID,omitempty"`
@@ -204,7 +273,7 @@ type SignPermission struct {
 func (m *SignPermission) Reset()                    { *m = SignPermission{} }
 func (m *SignPermission) String() string            { return proto.CompactTextString(m) }
 func (*SignPermission) ProtoMessage()               {}
-func (*SignPermission) Descriptor() ([]byte, []int) { return fileDescriptorWorkload, []int{8} }
+func (*SignPermission) Descriptor() ([]byte, []int) { return fileDescriptorWorkload, []int{11} }
 
 type ID struct {
 	ID string `protobuf:"bytes,1,opt,name=ID,json=iD,proto3" json:"ID,omitempty"`
@@ -213,7 +282,7 @@ type ID struct {
 func (m *ID) Reset()                    { *m = ID{} }
 func (m *ID) String() string            { return proto.CompactTextString(m) }
 func (*ID) ProtoMessage()               {}
-func (*ID) Descriptor() ([]byte, []int) { return fileDescriptorWorkload, []int{9} }
+func (*ID) Descriptor() ([]byte, []int) { return fileDescriptorWorkload, []int{12} }
 
 func init() {
 	proto.RegisterType((*CertificateRequest)(nil), "api.CertificateRequest")
@@ -221,11 +290,14 @@ func init() {
 	proto.RegisterType((*SearchResponse_Result)(nil), "api.SearchResponse.Result")
 	proto.RegisterType((*CertificateResponse)(nil), "api.CertificateResponse")
 	proto.RegisterType((*CertAuthority)(nil), "api.CertAuthority")
+	proto.RegisterType((*CertAuthorities)(nil), "api.CertAuthorities")
 	proto.RegisterType((*TrustedRootBundle)(nil), "api.TrustedRootBundle")
 	proto.RegisterType((*TrustedRootBundle_TrustedRootCert)(nil), "api.TrustedRootBundle.TrustedRootCert")
+	proto.RegisterType((*TrustedRootBundles)(nil), "api.TrustedRootBundles")
 	proto.RegisterType((*Workload)(nil), "api.Workload")
 	proto.RegisterType((*Workload_ScopedID)(nil), "api.Workload.ScopedID")
-	proto.RegisterType((*WorkloadEvent)(nil), "api.WorkloadEvent")
+	proto.RegisterType((*Workloads)(nil), "api.Workloads")
+	proto.RegisterType((*Event)(nil), "api.Event")
 	proto.RegisterType((*Permission)(nil), "api.Permission")
 	proto.RegisterType((*SignPermission)(nil), "api.SignPermission")
 	proto.RegisterType((*ID)(nil), "api.ID")
@@ -245,14 +317,19 @@ type ServiceClient interface {
 	CreateCertAuthority(ctx context.Context, in *CertAuthority, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 	UpsertCertAuthority(ctx context.Context, in *CertAuthority, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 	GetCertAuthority(ctx context.Context, in *ID, opts ...grpc.CallOption) (*CertAuthority, error)
+	GetCertAuthorityCert(ctx context.Context, in *ID, opts ...grpc.CallOption) (*CertAuthority, error)
 	DeleteCertAuthority(ctx context.Context, in *ID, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
+	GetCertAuthoritiesCerts(ctx context.Context, in *google_protobuf1.Empty, opts ...grpc.CallOption) (*CertAuthorities, error)
 	ProcessCertificateRequest(ctx context.Context, in *CertificateRequest, opts ...grpc.CallOption) (*CertificateResponse, error)
 	UpsertWorkload(ctx context.Context, in *Workload, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 	GetWorkload(ctx context.Context, in *ID, opts ...grpc.CallOption) (*Workload, error)
+	GetWorkloads(ctx context.Context, in *google_protobuf1.Empty, opts ...grpc.CallOption) (*Workloads, error)
 	DeleteWorkload(ctx context.Context, in *ID, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 	Subscribe(ctx context.Context, in *google_protobuf1.Empty, opts ...grpc.CallOption) (Service_SubscribeClient, error)
 	CreateTrustedRootBundle(ctx context.Context, in *TrustedRootBundle, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
+	UpsertTrustedRootBundle(ctx context.Context, in *TrustedRootBundle, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 	GetTrustedRootBundle(ctx context.Context, in *ID, opts ...grpc.CallOption) (*TrustedRootBundle, error)
+	GetTrustedRootBundles(ctx context.Context, in *google_protobuf1.Empty, opts ...grpc.CallOption) (*TrustedRootBundles, error)
 	DeleteTrustedRootBundle(ctx context.Context, in *ID, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 	GetPermission(ctx context.Context, in *Permission, opts ...grpc.CallOption) (*Permission, error)
 	UpsertPermission(ctx context.Context, in *Permission, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
@@ -297,9 +374,27 @@ func (c *serviceClient) GetCertAuthority(ctx context.Context, in *ID, opts ...gr
 	return out, nil
 }
 
+func (c *serviceClient) GetCertAuthorityCert(ctx context.Context, in *ID, opts ...grpc.CallOption) (*CertAuthority, error) {
+	out := new(CertAuthority)
+	err := grpc.Invoke(ctx, "/api.Service/GetCertAuthorityCert", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *serviceClient) DeleteCertAuthority(ctx context.Context, in *ID, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
 	out := new(google_protobuf1.Empty)
 	err := grpc.Invoke(ctx, "/api.Service/DeleteCertAuthority", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *serviceClient) GetCertAuthoritiesCerts(ctx context.Context, in *google_protobuf1.Empty, opts ...grpc.CallOption) (*CertAuthorities, error) {
+	out := new(CertAuthorities)
+	err := grpc.Invoke(ctx, "/api.Service/GetCertAuthoritiesCerts", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -333,6 +428,15 @@ func (c *serviceClient) GetWorkload(ctx context.Context, in *ID, opts ...grpc.Ca
 	return out, nil
 }
 
+func (c *serviceClient) GetWorkloads(ctx context.Context, in *google_protobuf1.Empty, opts ...grpc.CallOption) (*Workloads, error) {
+	out := new(Workloads)
+	err := grpc.Invoke(ctx, "/api.Service/GetWorkloads", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *serviceClient) DeleteWorkload(ctx context.Context, in *ID, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
 	out := new(google_protobuf1.Empty)
 	err := grpc.Invoke(ctx, "/api.Service/DeleteWorkload", in, out, c.cc, opts...)
@@ -358,7 +462,7 @@ func (c *serviceClient) Subscribe(ctx context.Context, in *google_protobuf1.Empt
 }
 
 type Service_SubscribeClient interface {
-	Recv() (*WorkloadEvent, error)
+	Recv() (*Event, error)
 	grpc.ClientStream
 }
 
@@ -366,8 +470,8 @@ type serviceSubscribeClient struct {
 	grpc.ClientStream
 }
 
-func (x *serviceSubscribeClient) Recv() (*WorkloadEvent, error) {
-	m := new(WorkloadEvent)
+func (x *serviceSubscribeClient) Recv() (*Event, error) {
+	m := new(Event)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -383,9 +487,27 @@ func (c *serviceClient) CreateTrustedRootBundle(ctx context.Context, in *Trusted
 	return out, nil
 }
 
+func (c *serviceClient) UpsertTrustedRootBundle(ctx context.Context, in *TrustedRootBundle, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+	out := new(google_protobuf1.Empty)
+	err := grpc.Invoke(ctx, "/api.Service/UpsertTrustedRootBundle", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *serviceClient) GetTrustedRootBundle(ctx context.Context, in *ID, opts ...grpc.CallOption) (*TrustedRootBundle, error) {
 	out := new(TrustedRootBundle)
 	err := grpc.Invoke(ctx, "/api.Service/GetTrustedRootBundle", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *serviceClient) GetTrustedRootBundles(ctx context.Context, in *google_protobuf1.Empty, opts ...grpc.CallOption) (*TrustedRootBundles, error) {
+	out := new(TrustedRootBundles)
+	err := grpc.Invoke(ctx, "/api.Service/GetTrustedRootBundles", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -461,14 +583,19 @@ type ServiceServer interface {
 	CreateCertAuthority(context.Context, *CertAuthority) (*google_protobuf1.Empty, error)
 	UpsertCertAuthority(context.Context, *CertAuthority) (*google_protobuf1.Empty, error)
 	GetCertAuthority(context.Context, *ID) (*CertAuthority, error)
+	GetCertAuthorityCert(context.Context, *ID) (*CertAuthority, error)
 	DeleteCertAuthority(context.Context, *ID) (*google_protobuf1.Empty, error)
+	GetCertAuthoritiesCerts(context.Context, *google_protobuf1.Empty) (*CertAuthorities, error)
 	ProcessCertificateRequest(context.Context, *CertificateRequest) (*CertificateResponse, error)
 	UpsertWorkload(context.Context, *Workload) (*google_protobuf1.Empty, error)
 	GetWorkload(context.Context, *ID) (*Workload, error)
+	GetWorkloads(context.Context, *google_protobuf1.Empty) (*Workloads, error)
 	DeleteWorkload(context.Context, *ID) (*google_protobuf1.Empty, error)
 	Subscribe(*google_protobuf1.Empty, Service_SubscribeServer) error
 	CreateTrustedRootBundle(context.Context, *TrustedRootBundle) (*google_protobuf1.Empty, error)
+	UpsertTrustedRootBundle(context.Context, *TrustedRootBundle) (*google_protobuf1.Empty, error)
 	GetTrustedRootBundle(context.Context, *ID) (*TrustedRootBundle, error)
+	GetTrustedRootBundles(context.Context, *google_protobuf1.Empty) (*TrustedRootBundles, error)
 	DeleteTrustedRootBundle(context.Context, *ID) (*google_protobuf1.Empty, error)
 	GetPermission(context.Context, *Permission) (*Permission, error)
 	UpsertPermission(context.Context, *Permission) (*google_protobuf1.Empty, error)
@@ -536,6 +663,24 @@ func _Service_GetCertAuthority_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Service_GetCertAuthorityCert_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ID)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ServiceServer).GetCertAuthorityCert(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/api.Service/GetCertAuthorityCert",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ServiceServer).GetCertAuthorityCert(ctx, req.(*ID))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Service_DeleteCertAuthority_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ID)
 	if err := dec(in); err != nil {
@@ -550,6 +695,24 @@ func _Service_DeleteCertAuthority_Handler(srv interface{}, ctx context.Context, 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ServiceServer).DeleteCertAuthority(ctx, req.(*ID))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Service_GetCertAuthoritiesCerts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(google_protobuf1.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ServiceServer).GetCertAuthoritiesCerts(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/api.Service/GetCertAuthoritiesCerts",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ServiceServer).GetCertAuthoritiesCerts(ctx, req.(*google_protobuf1.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -608,6 +771,24 @@ func _Service_GetWorkload_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Service_GetWorkloads_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(google_protobuf1.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ServiceServer).GetWorkloads(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/api.Service/GetWorkloads",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ServiceServer).GetWorkloads(ctx, req.(*google_protobuf1.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Service_DeleteWorkload_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ID)
 	if err := dec(in); err != nil {
@@ -635,7 +816,7 @@ func _Service_Subscribe_Handler(srv interface{}, stream grpc.ServerStream) error
 }
 
 type Service_SubscribeServer interface {
-	Send(*WorkloadEvent) error
+	Send(*Event) error
 	grpc.ServerStream
 }
 
@@ -643,7 +824,7 @@ type serviceSubscribeServer struct {
 	grpc.ServerStream
 }
 
-func (x *serviceSubscribeServer) Send(m *WorkloadEvent) error {
+func (x *serviceSubscribeServer) Send(m *Event) error {
 	return x.ServerStream.SendMsg(m)
 }
 
@@ -665,6 +846,24 @@ func _Service_CreateTrustedRootBundle_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Service_UpsertTrustedRootBundle_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TrustedRootBundle)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ServiceServer).UpsertTrustedRootBundle(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/api.Service/UpsertTrustedRootBundle",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ServiceServer).UpsertTrustedRootBundle(ctx, req.(*TrustedRootBundle))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Service_GetTrustedRootBundle_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ID)
 	if err := dec(in); err != nil {
@@ -679,6 +878,24 @@ func _Service_GetTrustedRootBundle_Handler(srv interface{}, ctx context.Context,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ServiceServer).GetTrustedRootBundle(ctx, req.(*ID))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Service_GetTrustedRootBundles_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(google_protobuf1.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ServiceServer).GetTrustedRootBundles(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/api.Service/GetTrustedRootBundles",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ServiceServer).GetTrustedRootBundles(ctx, req.(*google_protobuf1.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -826,8 +1043,16 @@ var _Service_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Service_GetCertAuthority_Handler,
 		},
 		{
+			MethodName: "GetCertAuthorityCert",
+			Handler:    _Service_GetCertAuthorityCert_Handler,
+		},
+		{
 			MethodName: "DeleteCertAuthority",
 			Handler:    _Service_DeleteCertAuthority_Handler,
+		},
+		{
+			MethodName: "GetCertAuthoritiesCerts",
+			Handler:    _Service_GetCertAuthoritiesCerts_Handler,
 		},
 		{
 			MethodName: "ProcessCertificateRequest",
@@ -842,6 +1067,10 @@ var _Service_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Service_GetWorkload_Handler,
 		},
 		{
+			MethodName: "GetWorkloads",
+			Handler:    _Service_GetWorkloads_Handler,
+		},
+		{
 			MethodName: "DeleteWorkload",
 			Handler:    _Service_DeleteWorkload_Handler,
 		},
@@ -850,8 +1079,16 @@ var _Service_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Service_CreateTrustedRootBundle_Handler,
 		},
 		{
+			MethodName: "UpsertTrustedRootBundle",
+			Handler:    _Service_UpsertTrustedRootBundle_Handler,
+		},
+		{
 			MethodName: "GetTrustedRootBundle",
 			Handler:    _Service_GetTrustedRootBundle_Handler,
+		},
+		{
+			MethodName: "GetTrustedRootBundles",
+			Handler:    _Service_GetTrustedRootBundles_Handler,
 		},
 		{
 			MethodName: "DeleteTrustedRootBundle",
@@ -1062,6 +1299,36 @@ func (m *CertAuthority) MarshalTo(data []byte) (int, error) {
 	return i, nil
 }
 
+func (m *CertAuthorities) Marshal() (data []byte, err error) {
+	size := m.Size()
+	data = make([]byte, size)
+	n, err := m.MarshalTo(data)
+	if err != nil {
+		return nil, err
+	}
+	return data[:n], nil
+}
+
+func (m *CertAuthorities) MarshalTo(data []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.CertAuthorities) > 0 {
+		for _, msg := range m.CertAuthorities {
+			data[i] = 0xa
+			i++
+			i = encodeVarintWorkload(data, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(data[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	return i, nil
+}
+
 func (m *TrustedRootBundle) Marshal() (data []byte, err error) {
 	size := m.Size()
 	data = make([]byte, size)
@@ -1093,6 +1360,21 @@ func (m *TrustedRootBundle) MarshalTo(data []byte) (int, error) {
 				return 0, err
 			}
 			i += n
+		}
+	}
+	if len(m.CertAuthorityIDs) > 0 {
+		for _, s := range m.CertAuthorityIDs {
+			data[i] = 0x1a
+			i++
+			l = len(s)
+			for l >= 1<<7 {
+				data[i] = uint8(uint64(l)&0x7f | 0x80)
+				l >>= 7
+				i++
+			}
+			data[i] = uint8(l)
+			i++
+			i += copy(data[i:], s)
 		}
 	}
 	return i, nil
@@ -1130,6 +1412,36 @@ func (m *TrustedRootBundle_TrustedRootCert) MarshalTo(data []byte) (int, error) 
 		i++
 		i = encodeVarintWorkload(data, i, uint64(len(m.Cert)))
 		i += copy(data[i:], m.Cert)
+	}
+	return i, nil
+}
+
+func (m *TrustedRootBundles) Marshal() (data []byte, err error) {
+	size := m.Size()
+	data = make([]byte, size)
+	n, err := m.MarshalTo(data)
+	if err != nil {
+		return nil, err
+	}
+	return data[:n], nil
+}
+
+func (m *TrustedRootBundles) MarshalTo(data []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Bundles) > 0 {
+		for _, msg := range m.Bundles {
+			data[i] = 0xa
+			i++
+			i = encodeVarintWorkload(data, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(data[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
 	}
 	return i, nil
 }
@@ -1224,7 +1536,7 @@ func (m *Workload_ScopedID) MarshalTo(data []byte) (int, error) {
 	return i, nil
 }
 
-func (m *WorkloadEvent) Marshal() (data []byte, err error) {
+func (m *Workloads) Marshal() (data []byte, err error) {
 	size := m.Size()
 	data = make([]byte, size)
 	n, err := m.MarshalTo(data)
@@ -1234,7 +1546,37 @@ func (m *WorkloadEvent) Marshal() (data []byte, err error) {
 	return data[:n], nil
 }
 
-func (m *WorkloadEvent) MarshalTo(data []byte) (int, error) {
+func (m *Workloads) MarshalTo(data []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Workloads) > 0 {
+		for _, msg := range m.Workloads {
+			data[i] = 0xa
+			i++
+			i = encodeVarintWorkload(data, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(data[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	return i, nil
+}
+
+func (m *Event) Marshal() (data []byte, err error) {
+	size := m.Size()
+	data = make([]byte, size)
+	n, err := m.MarshalTo(data)
+	if err != nil {
+		return nil, err
+	}
+	return data[:n], nil
+}
+
+func (m *Event) MarshalTo(data []byte) (int, error) {
 	var i int
 	_ = i
 	var l int
@@ -1251,8 +1593,14 @@ func (m *WorkloadEvent) MarshalTo(data []byte) (int, error) {
 		i = encodeVarintWorkload(data, i, uint64(len(m.Type)))
 		i += copy(data[i:], m.Type)
 	}
-	if m.Workload != nil {
+	if len(m.Action) > 0 {
 		data[i] = 0x1a
+		i++
+		i = encodeVarintWorkload(data, i, uint64(len(m.Action)))
+		i += copy(data[i:], m.Action)
+	}
+	if m.Workload != nil {
+		data[i] = 0x22
 		i++
 		i = encodeVarintWorkload(data, i, uint64(m.Workload.Size()))
 		n1, err := m.Workload.MarshalTo(data[i:])
@@ -1260,6 +1608,26 @@ func (m *WorkloadEvent) MarshalTo(data []byte) (int, error) {
 			return 0, err
 		}
 		i += n1
+	}
+	if m.Bundle != nil {
+		data[i] = 0x2a
+		i++
+		i = encodeVarintWorkload(data, i, uint64(m.Bundle.Size()))
+		n2, err := m.Bundle.MarshalTo(data[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n2
+	}
+	if m.CertAuthority != nil {
+		data[i] = 0x32
+		i++
+		i = encodeVarintWorkload(data, i, uint64(m.CertAuthority.Size()))
+		n3, err := m.CertAuthority.MarshalTo(data[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n3
 	}
 	return i, nil
 }
@@ -1481,6 +1849,18 @@ func (m *CertAuthority) Size() (n int) {
 	return n
 }
 
+func (m *CertAuthorities) Size() (n int) {
+	var l int
+	_ = l
+	if len(m.CertAuthorities) > 0 {
+		for _, e := range m.CertAuthorities {
+			l = e.Size()
+			n += 1 + l + sovWorkload(uint64(l))
+		}
+	}
+	return n
+}
+
 func (m *TrustedRootBundle) Size() (n int) {
 	var l int
 	_ = l
@@ -1491,6 +1871,12 @@ func (m *TrustedRootBundle) Size() (n int) {
 	if len(m.Certs) > 0 {
 		for _, e := range m.Certs {
 			l = e.Size()
+			n += 1 + l + sovWorkload(uint64(l))
+		}
+	}
+	if len(m.CertAuthorityIDs) > 0 {
+		for _, s := range m.CertAuthorityIDs {
+			l = len(s)
 			n += 1 + l + sovWorkload(uint64(l))
 		}
 	}
@@ -1511,6 +1897,18 @@ func (m *TrustedRootBundle_TrustedRootCert) Size() (n int) {
 	l = len(m.Cert)
 	if l > 0 {
 		n += 1 + l + sovWorkload(uint64(l))
+	}
+	return n
+}
+
+func (m *TrustedRootBundles) Size() (n int) {
+	var l int
+	_ = l
+	if len(m.Bundles) > 0 {
+		for _, e := range m.Bundles {
+			l = e.Size()
+			n += 1 + l + sovWorkload(uint64(l))
+		}
 	}
 	return n
 }
@@ -1553,7 +1951,19 @@ func (m *Workload_ScopedID) Size() (n int) {
 	return n
 }
 
-func (m *WorkloadEvent) Size() (n int) {
+func (m *Workloads) Size() (n int) {
+	var l int
+	_ = l
+	if len(m.Workloads) > 0 {
+		for _, e := range m.Workloads {
+			l = e.Size()
+			n += 1 + l + sovWorkload(uint64(l))
+		}
+	}
+	return n
+}
+
+func (m *Event) Size() (n int) {
 	var l int
 	_ = l
 	l = len(m.ID)
@@ -1564,8 +1974,20 @@ func (m *WorkloadEvent) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovWorkload(uint64(l))
 	}
+	l = len(m.Action)
+	if l > 0 {
+		n += 1 + l + sovWorkload(uint64(l))
+	}
 	if m.Workload != nil {
 		l = m.Workload.Size()
+		n += 1 + l + sovWorkload(uint64(l))
+	}
+	if m.Bundle != nil {
+		l = m.Bundle.Size()
+		n += 1 + l + sovWorkload(uint64(l))
+	}
+	if m.CertAuthority != nil {
+		l = m.CertAuthority.Size()
 		n += 1 + l + sovWorkload(uint64(l))
 	}
 	return n
@@ -2210,6 +2632,87 @@ func (m *CertAuthority) Unmarshal(data []byte) error {
 	}
 	return nil
 }
+func (m *CertAuthorities) Unmarshal(data []byte) error {
+	l := len(data)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowWorkload
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := data[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: CertAuthorities: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: CertAuthorities: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CertAuthorities", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowWorkload
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthWorkload
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.CertAuthorities = append(m.CertAuthorities, &CertAuthority{})
+			if err := m.CertAuthorities[len(m.CertAuthorities)-1].Unmarshal(data[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipWorkload(data[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthWorkload
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
 func (m *TrustedRootBundle) Unmarshal(data []byte) error {
 	l := len(data)
 	iNdEx := 0
@@ -2298,6 +2801,35 @@ func (m *TrustedRootBundle) Unmarshal(data []byte) error {
 			if err := m.Certs[len(m.Certs)-1].Unmarshal(data[iNdEx:postIndex]); err != nil {
 				return err
 			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CertAuthorityIDs", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowWorkload
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthWorkload
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.CertAuthorityIDs = append(m.CertAuthorityIDs, string(data[iNdEx:postIndex]))
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -2436,6 +2968,87 @@ func (m *TrustedRootBundle_TrustedRootCert) Unmarshal(data []byte) error {
 			m.Cert = append(m.Cert[:0], data[iNdEx:postIndex]...)
 			if m.Cert == nil {
 				m.Cert = []byte{}
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipWorkload(data[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthWorkload
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *TrustedRootBundles) Unmarshal(data []byte) error {
+	l := len(data)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowWorkload
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := data[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: TrustedRootBundles: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: TrustedRootBundles: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Bundles", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowWorkload
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthWorkload
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Bundles = append(m.Bundles, &TrustedRootBundle{})
+			if err := m.Bundles[len(m.Bundles)-1].Unmarshal(data[iNdEx:postIndex]); err != nil {
+				return err
 			}
 			iNdEx = postIndex
 		default:
@@ -2716,7 +3329,7 @@ func (m *Workload_ScopedID) Unmarshal(data []byte) error {
 	}
 	return nil
 }
-func (m *WorkloadEvent) Unmarshal(data []byte) error {
+func (m *Workloads) Unmarshal(data []byte) error {
 	l := len(data)
 	iNdEx := 0
 	for iNdEx < l {
@@ -2739,10 +3352,91 @@ func (m *WorkloadEvent) Unmarshal(data []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: WorkloadEvent: wiretype end group for non-group")
+			return fmt.Errorf("proto: Workloads: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: WorkloadEvent: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: Workloads: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Workloads", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowWorkload
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthWorkload
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Workloads = append(m.Workloads, &Workload{})
+			if err := m.Workloads[len(m.Workloads)-1].Unmarshal(data[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipWorkload(data[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthWorkload
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *Event) Unmarshal(data []byte) error {
+	l := len(data)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowWorkload
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := data[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Event: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Event: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -2805,6 +3499,35 @@ func (m *WorkloadEvent) Unmarshal(data []byte) error {
 			iNdEx = postIndex
 		case 3:
 			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Action", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowWorkload
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthWorkload
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Action = string(data[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Workload", wireType)
 			}
 			var msglen int
@@ -2833,6 +3556,72 @@ func (m *WorkloadEvent) Unmarshal(data []byte) error {
 				m.Workload = &Workload{}
 			}
 			if err := m.Workload.Unmarshal(data[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Bundle", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowWorkload
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthWorkload
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Bundle == nil {
+				m.Bundle = &TrustedRootBundle{}
+			}
+			if err := m.Bundle.Unmarshal(data[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 6:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CertAuthority", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowWorkload
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthWorkload
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.CertAuthority == nil {
+				m.CertAuthority = &CertAuthority{}
+			}
+			if err := m.CertAuthority.Unmarshal(data[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -3395,76 +4184,87 @@ var (
 func init() { proto.RegisterFile("workload.proto", fileDescriptorWorkload) }
 
 var fileDescriptorWorkload = []byte{
-	// 1121 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0xa4, 0x56, 0x5d, 0x6f, 0x1b, 0x45,
-	0x17, 0x7e, 0xd7, 0x9b, 0xb8, 0xf6, 0x69, 0xe2, 0x38, 0x13, 0xcb, 0x71, 0x36, 0xa9, 0x9b, 0xee,
-	0xcb, 0x87, 0x6b, 0x09, 0x2f, 0xa4, 0x80, 0x04, 0xe5, 0x26, 0x8d, 0x4b, 0x64, 0x08, 0x6a, 0x58,
-	0x87, 0x22, 0x55, 0x82, 0xb2, 0x5e, 0x9f, 0x38, 0x03, 0x9b, 0xdd, 0x65, 0x67, 0x9c, 0xc6, 0x8a,
-	0x22, 0x21, 0x2e, 0xb8, 0xe2, 0x0e, 0x2e, 0xf8, 0x21, 0xfc, 0x08, 0x2e, 0xb8, 0xa8, 0xc4, 0x1f,
-	0x40, 0x81, 0x1f, 0x82, 0x66, 0xf6, 0xc3, 0x5e, 0x7f, 0x15, 0xd2, 0x3b, 0xcf, 0x99, 0x99, 0xe7,
-	0x79, 0xce, 0x73, 0xce, 0x9c, 0x35, 0x14, 0x9e, 0x79, 0xc1, 0x37, 0x8e, 0x67, 0x75, 0x1b, 0x7e,
-	0xe0, 0x71, 0x8f, 0xa8, 0x96, 0x4f, 0xb5, 0x27, 0x3d, 0xca, 0x4f, 0xfa, 0x9d, 0x86, 0xed, 0x9d,
-	0x1a, 0xbd, 0xc0, 0xb7, 0xdf, 0x40, 0xdb, 0x63, 0x03, 0xc6, 0x31, 0x5a, 0xf6, 0x2c, 0x8e, 0xcf,
-	0xac, 0x81, 0xc1, 0x4f, 0x68, 0xd0, 0x7d, 0xea, 0x5b, 0x01, 0x1f, 0x18, 0x3d, 0xcf, 0xeb, 0x39,
-	0x68, 0xf9, 0x94, 0x45, 0x3f, 0x0d, 0xcb, 0xa7, 0x86, 0xe5, 0xba, 0x1e, 0xb7, 0x38, 0xf5, 0x5c,
-	0x16, 0x12, 0x68, 0x9b, 0xd1, 0xae, 0x5c, 0x75, 0xfa, 0xc7, 0x06, 0x9e, 0xfa, 0x7c, 0x10, 0x6e,
-	0xea, 0x1d, 0x20, 0x7b, 0x18, 0x70, 0x7a, 0x4c, 0x6d, 0x8b, 0xa3, 0x89, 0xdf, 0xf6, 0x91, 0x71,
-	0x52, 0x83, 0x15, 0x11, 0xdd, 0xed, 0xf3, 0x13, 0x2f, 0xa0, 0x7c, 0xd0, 0x6a, 0x56, 0x94, 0x6d,
-	0xa5, 0x96, 0x37, 0x57, 0xec, 0x74, 0x98, 0x14, 0x41, 0x3d, 0x3a, 0x3a, 0xa8, 0x64, 0xb6, 0x95,
-	0x9a, 0x6a, 0xaa, 0xfc, 0xe8, 0x40, 0x44, 0xf6, 0xda, 0x66, 0x45, 0xdd, 0x56, 0x6a, 0x4b, 0xa6,
-	0x6a, 0xb7, 0x4d, 0xfd, 0x67, 0x05, 0x0a, 0x6d, 0xb4, 0x02, 0xfb, 0xc4, 0x44, 0xe6, 0x7b, 0x2e,
-	0x43, 0xf2, 0x36, 0xdc, 0x08, 0x90, 0xf5, 0x1d, 0xce, 0x2a, 0xca, 0xb6, 0x5a, 0xbb, 0xb9, 0xa3,
-	0x35, 0x2c, 0x9f, 0x36, 0xd2, 0xa7, 0x1a, 0xa6, 0x3c, 0x62, 0xc6, 0x47, 0xb5, 0x03, 0xc8, 0x86,
-	0x21, 0x41, 0xd2, 0x0f, 0x9c, 0x48, 0x94, 0xf8, 0x49, 0x4a, 0xb0, 0xc8, 0x29, 0x77, 0x50, 0x4a,
-	0xc9, 0x9b, 0xe1, 0x82, 0x68, 0x90, 0x63, 0x2e, 0xf5, 0x7d, 0xe4, 0xac, 0xa2, 0x6e, 0xab, 0xb5,
-	0xbc, 0x99, 0xac, 0xf5, 0xbb, 0xb0, 0x96, 0x4a, 0x3d, 0x92, 0x46, 0x60, 0x41, 0x84, 0x25, 0xf6,
-	0x92, 0xb9, 0x20, 0x12, 0xd6, 0xdb, 0xb0, 0x9c, 0xf2, 0x83, 0x14, 0x20, 0x93, 0x78, 0x92, 0xa1,
-	0xcd, 0xe4, 0x52, 0x66, 0x78, 0x89, 0x54, 0x01, 0x0e, 0x03, 0x7a, 0x66, 0x71, 0xfc, 0x18, 0x07,
-	0x91, 0x1f, 0xe0, 0x27, 0x11, 0xfd, 0x57, 0x05, 0x56, 0x8f, 0x82, 0x3e, 0xe3, 0xd8, 0x35, 0x3d,
-	0x8f, 0x3f, 0xe8, 0xbb, 0x5d, 0x07, 0x27, 0x90, 0x3f, 0x80, 0x45, 0x81, 0xcc, 0x2a, 0x19, 0xe9,
-	0xd3, 0x6b, 0xd2, 0xa7, 0x89, 0x6b, 0xa3, 0x11, 0x71, 0xdc, 0x5c, 0x14, 0x12, 0x98, 0xf6, 0x29,
-	0xac, 0x8c, 0xed, 0x4c, 0x10, 0x68, 0x90, 0xfb, 0x90, 0x3a, 0xe8, 0x5a, 0xa7, 0xb1, 0x77, 0xb9,
-	0xe3, 0x68, 0x9d, 0xa4, 0xa5, 0x8e, 0x78, 0xf1, 0x5c, 0x81, 0xdc, 0xe7, 0x51, 0x0b, 0x4f, 0x80,
-	0xbd, 0x0b, 0xd0, 0xea, 0xa2, 0xcb, 0x29, 0xa7, 0x18, 0x4b, 0x2e, 0x4b, 0xc9, 0xf1, 0x95, 0x46,
-	0xdb, 0xf6, 0x7c, 0xec, 0xb6, 0x9a, 0x26, 0xd0, 0xe4, 0x24, 0xa9, 0x43, 0x31, 0xd2, 0x19, 0xe6,
-	0xd3, 0x6a, 0xc6, 0xf5, 0x2a, 0xf2, 0xb1, 0xb8, 0x76, 0x08, 0xb9, 0x18, 0x63, 0x82, 0xbf, 0x0c,
-	0xd9, 0x4f, 0xac, 0xf3, 0x61, 0x47, 0x66, 0x4f, 0xe5, 0x8a, 0x6c, 0x41, 0xbe, 0xc5, 0x9a, 0x78,
-	0x6c, 0xf5, 0x9d, 0x30, 0x9b, 0x9c, 0x99, 0xa7, 0x71, 0x40, 0xff, 0x12, 0x96, 0x63, 0x79, 0x0f,
-	0xcf, 0xd0, 0xe5, 0xd3, 0xca, 0x7b, 0x34, 0xf0, 0x63, 0x7f, 0x16, 0xf8, 0xc0, 0x47, 0x72, 0x77,
-	0x68, 0x83, 0x44, 0xbc, 0xb9, 0xb3, 0x9c, 0x4a, 0xd4, 0xcc, 0xc5, 0x0f, 0x5d, 0x3f, 0x07, 0x38,
-	0xc4, 0xe0, 0x94, 0x32, 0x46, 0x3d, 0x77, 0x9a, 0xe6, 0x5d, 0x5b, 0x3c, 0xd8, 0x08, 0x3e, 0x6b,
-	0xc9, 0x95, 0xe8, 0x9f, 0x3d, 0xcf, 0x71, 0x30, 0xdc, 0x53, 0xe5, 0x1e, 0xd8, 0x49, 0x84, 0xe8,
-	0xb0, 0x34, 0xdc, 0x6f, 0x35, 0x2b, 0x0b, 0xf2, 0xc4, 0x92, 0x3d, 0x12, 0xd3, 0x7f, 0x14, 0x4f,
-	0x8f, 0xf6, 0xdc, 0x39, 0xf4, 0x53, 0xde, 0x7a, 0x66, 0xe6, 0x5b, 0x7f, 0x14, 0xf4, 0x22, 0x25,
-	0xaa, 0x17, 0xf4, 0x84, 0x74, 0x81, 0x9e, 0x90, 0x67, 0x99, 0x5c, 0x8d, 0x94, 0x61, 0x71, 0xb4,
-	0x0c, 0x7a, 0x49, 0x70, 0x8f, 0x2b, 0xd8, 0xf9, 0xbd, 0x00, 0x37, 0xda, 0x18, 0x9c, 0x51, 0x1b,
-	0xc9, 0x31, 0xac, 0xed, 0x05, 0x68, 0x71, 0x4c, 0xbf, 0x37, 0x22, 0xad, 0x4d, 0xc5, 0xb4, 0x72,
-	0x23, 0x1c, 0x6c, 0x8d, 0x78, 0xb0, 0x35, 0x1e, 0x8a, 0xc1, 0xa6, 0xff, 0xff, 0xfb, 0x3f, 0xfe,
-	0xfe, 0x29, 0x73, 0x4b, 0xaf, 0x18, 0x67, 0x6f, 0x19, 0x71, 0x0d, 0x0c, 0x2b, 0xba, 0x47, 0x91,
-	0xbd, 0xaf, 0xd4, 0x05, 0xcf, 0x67, 0x3e, 0xc3, 0x80, 0xbf, 0x34, 0x8f, 0x36, 0x97, 0xe7, 0x31,
-	0x14, 0xf7, 0x71, 0x8c, 0xe4, 0x86, 0x24, 0x69, 0x35, 0xb5, 0x29, 0x6c, 0xfa, 0xab, 0x12, 0xf5,
-	0x36, 0xb9, 0x35, 0x0b, 0xd5, 0xb8, 0x68, 0x35, 0x2f, 0xc9, 0x17, 0xb0, 0xd6, 0x44, 0x07, 0xc7,
-	0x7d, 0x4a, 0xa0, 0x67, 0x89, 0x8e, 0xe0, 0xeb, 0x2f, 0x80, 0x77, 0x60, 0xe3, 0x30, 0xf0, 0x6c,
-	0x64, 0x6c, 0xca, 0xd7, 0x61, 0x3d, 0x91, 0x9d, 0xde, 0xd0, 0x2a, 0x93, 0x1b, 0xe1, 0x50, 0xd5,
-	0xb7, 0x24, 0x6d, 0x59, 0x5f, 0x4d, 0xd1, 0x8a, 0x6e, 0x11, 0x26, 0x3d, 0x81, 0x42, 0x58, 0x8c,
-	0x64, 0xae, 0xa4, 0x9f, 0xd2, 0xcc, 0x6c, 0xee, 0x48, 0xd8, 0x4d, 0xad, 0x9c, 0x82, 0x8d, 0x7f,
-	0xc8, 0x02, 0x7c, 0x04, 0x37, 0xf7, 0x71, 0x08, 0x9c, 0x18, 0x94, 0x66, 0x88, 0x8b, 0x49, 0x36,
-	0xa7, 0x23, 0x85, 0xae, 0x3c, 0x86, 0x42, 0x68, 0xfa, 0x24, 0xdc, 0x0b, 0x9a, 0xa4, 0x3e, 0x17,
-	0xf7, 0x29, 0xe4, 0xdb, 0xfd, 0x0e, 0xb3, 0x03, 0xda, 0x41, 0x32, 0x03, 0x29, 0x6a, 0x96, 0xd4,
-	0x9c, 0xd2, 0x5f, 0x91, 0xe8, 0x55, 0xb2, 0x35, 0x1d, 0x1d, 0xc5, 0x21, 0xf6, 0xa6, 0x42, 0xbe,
-	0x86, 0xf5, 0xf0, 0x55, 0x4d, 0x7e, 0x6f, 0xca, 0xd3, 0x3f, 0x28, 0x33, 0x13, 0xba, 0x2d, 0x29,
-	0x37, 0xf4, 0x52, 0x8a, 0xb2, 0x23, 0x2f, 0xb1, 0xb0, 0x98, 0xa5, 0x7d, 0xe4, 0x93, 0x44, 0x23,
-	0x56, 0x4d, 0x65, 0x8c, 0x8b, 0x49, 0x36, 0xa6, 0x21, 0xc7, 0x5d, 0xbf, 0x1e, 0x16, 0x60, 0x2e,
-	0xfc, 0xdc, 0x5e, 0xa9, 0xcf, 0x81, 0x77, 0x61, 0x79, 0x1f, 0xf9, 0xc8, 0xac, 0x5c, 0x91, 0xa0,
-	0xc3, 0x80, 0x36, 0x1e, 0xd0, 0xef, 0x4b, 0xd4, 0x77, 0xc8, 0xbd, 0x14, 0xaa, 0x9f, 0x1c, 0x08,
-	0x91, 0x8d, 0x8b, 0x70, 0xc2, 0x5f, 0x1a, 0x17, 0xc3, 0x91, 0x7d, 0x49, 0xbe, 0x82, 0x62, 0xd8,
-	0xf7, 0xf3, 0x28, 0xff, 0xdb, 0xf8, 0x19, 0x61, 0x16, 0xc5, 0x38, 0x87, 0x62, 0x68, 0xd8, 0x75,
-	0x18, 0xa2, 0xdc, 0xea, 0xd7, 0xca, 0xed, 0x3b, 0x05, 0x56, 0xf7, 0x91, 0x8f, 0x7d, 0x7c, 0xd6,
-	0xc2, 0xbf, 0x79, 0xa9, 0xa0, 0x36, 0x2d, 0xa8, 0xef, 0x4a, 0xf2, 0xfb, 0xe4, 0xbd, 0x89, 0x89,
-	0x31, 0x29, 0x60, 0xec, 0xfb, 0x75, 0x69, 0x5c, 0x3c, 0x0a, 0x7a, 0x62, 0x88, 0x95, 0x42, 0x7b,
-	0xff, 0x8d, 0x88, 0x59, 0x26, 0xbc, 0x2e, 0x75, 0xdc, 0xd1, 0xb6, 0xe6, 0xe9, 0x10, 0x56, 0xff,
-	0xa0, 0x40, 0x29, 0xf4, 0xfa, 0x65, 0xe8, 0xa2, 0xb4, 0xeb, 0xd7, 0x4f, 0xfb, 0x41, 0xf1, 0xb7,
-	0xab, 0xaa, 0xf2, 0xfc, 0xaa, 0xaa, 0xfc, 0x79, 0x55, 0x55, 0x7e, 0xf9, 0xab, 0xfa, 0xbf, 0x4e,
-	0x56, 0x92, 0xdc, 0xfb, 0x27, 0x00, 0x00, 0xff, 0xff, 0x24, 0x65, 0x77, 0x32, 0x7b, 0x0c, 0x00,
-	0x00,
+	// 1306 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0xac, 0x57, 0x5d, 0x73, 0xdb, 0x44,
+	0x17, 0x7e, 0x65, 0x27, 0x8e, 0x7d, 0x9a, 0x0f, 0x77, 0xe3, 0x26, 0xae, 0xd2, 0xba, 0xa9, 0x5e,
+	0x3e, 0x52, 0x33, 0x58, 0xa5, 0x05, 0xa6, 0xd0, 0xde, 0xb4, 0x71, 0x9b, 0x31, 0x14, 0x1a, 0xe4,
+	0x50, 0x66, 0x3a, 0xd3, 0x29, 0xb2, 0xb2, 0x76, 0xb6, 0x28, 0x92, 0xd0, 0xae, 0xd3, 0x7a, 0x32,
+	0x99, 0x61, 0xb8, 0xe0, 0x8a, 0x3b, 0xb8, 0xe0, 0xa7, 0xf0, 0x13, 0xb8, 0xec, 0x0c, 0x37, 0x5c,
+	0x76, 0x0a, 0x3f, 0x84, 0xd9, 0x5d, 0x49, 0xd6, 0xa7, 0x0b, 0x2d, 0x77, 0xde, 0xa3, 0xd5, 0xf3,
+	0x3c, 0xe7, 0x39, 0xbb, 0xe7, 0xc8, 0xb0, 0xfc, 0xc4, 0xf5, 0xbf, 0xb1, 0x5d, 0x73, 0xbf, 0xe3,
+	0xf9, 0x2e, 0x73, 0x51, 0xd9, 0xf4, 0x88, 0xfa, 0x60, 0x44, 0xd8, 0xc1, 0x78, 0xd0, 0xb1, 0xdc,
+	0x43, 0x7d, 0xe4, 0x7b, 0xd6, 0xbb, 0xd8, 0x72, 0xe9, 0x84, 0x32, 0x1c, 0x2c, 0x47, 0x26, 0xc3,
+	0x4f, 0xcc, 0x89, 0xce, 0x0e, 0x88, 0xbf, 0xff, 0xc8, 0x33, 0x7d, 0x36, 0xd1, 0x47, 0xae, 0x3b,
+	0xb2, 0xb1, 0xe9, 0x11, 0x1a, 0xfc, 0xd4, 0x4d, 0x8f, 0xe8, 0xa6, 0xe3, 0xb8, 0xcc, 0x64, 0xc4,
+	0x75, 0xa8, 0x24, 0x50, 0x37, 0x82, 0xa7, 0x62, 0x35, 0x18, 0x0f, 0x75, 0x7c, 0xe8, 0xb1, 0x89,
+	0x7c, 0xa8, 0x0d, 0x00, 0x6d, 0x63, 0x9f, 0x91, 0x21, 0xb1, 0x4c, 0x86, 0x0d, 0xfc, 0xed, 0x18,
+	0x53, 0x86, 0xb6, 0x60, 0x85, 0x47, 0x6f, 0x8e, 0xd9, 0x81, 0xeb, 0x13, 0x36, 0xe9, 0x75, 0x9b,
+	0xca, 0xa6, 0xb2, 0x55, 0x33, 0x56, 0xac, 0x64, 0x18, 0xd5, 0xa1, 0xbc, 0xb7, 0x77, 0xb7, 0x59,
+	0xda, 0x54, 0xb6, 0xca, 0x46, 0x99, 0xed, 0xdd, 0xe5, 0x91, 0xed, 0xbe, 0xd1, 0x2c, 0x6f, 0x2a,
+	0x5b, 0x8b, 0x46, 0xd9, 0xea, 0x1b, 0xda, 0xcf, 0x0a, 0x2c, 0xf7, 0xb1, 0xe9, 0x5b, 0x07, 0x06,
+	0xa6, 0x9e, 0xeb, 0x50, 0x8c, 0xde, 0x87, 0x05, 0x1f, 0xd3, 0xb1, 0xcd, 0x68, 0x53, 0xd9, 0x2c,
+	0x6f, 0x9d, 0xba, 0xa2, 0x76, 0x4c, 0x8f, 0x74, 0x92, 0xbb, 0x3a, 0x86, 0xd8, 0x62, 0x84, 0x5b,
+	0xd5, 0xbb, 0x50, 0x91, 0x21, 0x4e, 0x32, 0xf6, 0xed, 0x40, 0x14, 0xff, 0x89, 0x1a, 0x30, 0xcf,
+	0x08, 0xb3, 0xb1, 0x90, 0x52, 0x33, 0xe4, 0x02, 0xa9, 0x50, 0xa5, 0x0e, 0xf1, 0x3c, 0xcc, 0x68,
+	0xb3, 0xbc, 0x59, 0xde, 0xaa, 0x19, 0xd1, 0x5a, 0xbb, 0x04, 0xab, 0x89, 0xd4, 0x03, 0x69, 0x08,
+	0xe6, 0x78, 0x58, 0x60, 0x2f, 0x1a, 0x73, 0x3c, 0x61, 0xad, 0x0f, 0x4b, 0x09, 0x3f, 0xd0, 0x32,
+	0x94, 0x22, 0x4f, 0x4a, 0xa4, 0x1b, 0xbd, 0x54, 0x9a, 0xbe, 0x84, 0x5a, 0x00, 0xbb, 0x3e, 0x39,
+	0x32, 0x19, 0xfe, 0x14, 0x4f, 0x02, 0x3f, 0xc0, 0x8b, 0x22, 0xda, 0xbd, 0xa4, 0xc9, 0x04, 0x53,
+	0x74, 0x23, 0x13, 0x0a, 0xec, 0x41, 0xc2, 0x9e, 0x84, 0x86, 0x64, 0x2d, 0x08, 0xa6, 0xda, 0x73,
+	0x05, 0x4e, 0xef, 0xf9, 0x63, 0xca, 0xf0, 0xbe, 0xe1, 0xba, 0xec, 0xd6, 0xd8, 0xd9, 0xb7, 0x71,
+	0x46, 0xea, 0x0d, 0x98, 0xe7, 0x38, 0xb4, 0x59, 0x12, 0xc8, 0x6f, 0x09, 0xe4, 0xcc, 0x6b, 0xf1,
+	0x08, 0xdf, 0x6e, 0xcc, 0x73, 0x36, 0x8a, 0xda, 0x50, 0x4f, 0x9d, 0x8c, 0xd0, 0xd8, 0x7a, 0xea,
+	0x68, 0x50, 0xf5, 0x0b, 0x58, 0x49, 0xa1, 0x64, 0xc4, 0xa8, 0x50, 0xbd, 0x43, 0x6c, 0xec, 0x98,
+	0x87, 0x61, 0xe1, 0xaa, 0xc3, 0x60, 0x1d, 0x79, 0x5a, 0x8e, 0x15, 0xe2, 0x0e, 0xa0, 0x8c, 0x54,
+	0x8a, 0x2e, 0xc3, 0x42, 0xf0, 0x33, 0xb0, 0x6b, 0x2d, 0x3f, 0x29, 0x63, 0x61, 0x20, 0xb7, 0x69,
+	0xcf, 0x14, 0xa8, 0x7e, 0x15, 0xdc, 0xc3, 0x8c, 0xa8, 0x0f, 0x01, 0x7a, 0xfb, 0xd8, 0x61, 0xb2,
+	0x00, 0xa5, 0x18, 0x62, 0xf8, 0x4a, 0xa7, 0x6f, 0xb9, 0x1e, 0xde, 0xef, 0x75, 0x0d, 0x20, 0xd1,
+	0x4e, 0xee, 0x4d, 0x40, 0x29, 0xe9, 0x62, 0xde, 0xb0, 0x54, 0x5c, 0xdd, 0x85, 0x6a, 0x88, 0x91,
+	0xe1, 0x5f, 0x83, 0xca, 0x67, 0xe6, 0xd3, 0xe9, 0xb5, 0xaa, 0x1c, 0x8a, 0x15, 0x3a, 0x07, 0xb5,
+	0x1e, 0xed, 0xe2, 0xa1, 0x39, 0xb6, 0xa5, 0x2b, 0x55, 0xa3, 0x46, 0xc2, 0x80, 0x76, 0x0d, 0x6a,
+	0xa1, 0x3c, 0x8a, 0xde, 0x89, 0x2d, 0x02, 0x4f, 0x96, 0x12, 0x19, 0x18, 0xb5, 0xb0, 0x0d, 0x51,
+	0xed, 0x0f, 0x05, 0xe6, 0x6f, 0x1f, 0x61, 0x87, 0xe5, 0x1d, 0xeb, 0xbd, 0x89, 0x17, 0x96, 0x66,
+	0x8e, 0x4d, 0x3c, 0xcc, 0xd5, 0xdd, 0xb4, 0x78, 0x7f, 0x11, 0x12, 0x6a, 0x46, 0xc5, 0x14, 0x2b,
+	0x74, 0x69, 0xea, 0x68, 0x73, 0x6e, 0x53, 0xc9, 0x32, 0x56, 0x43, 0x46, 0xd4, 0x81, 0x8a, 0x74,
+	0xa2, 0x39, 0x2f, 0x36, 0x16, 0x95, 0xab, 0x22, 0xcb, 0x85, 0xae, 0xa5, 0xae, 0x5f, 0xb3, 0x22,
+	0x5e, 0xcb, 0xbb, 0x14, 0x4b, 0x89, 0x53, 0xa8, 0x3d, 0x05, 0xd8, 0xc5, 0xfe, 0x21, 0xa1, 0x94,
+	0x4b, 0xcc, 0x31, 0x3a, 0x48, 0xa5, 0x94, 0x48, 0xa5, 0x05, 0xb0, 0xed, 0xda, 0x36, 0x8e, 0xa7,
+	0x09, 0x56, 0x14, 0x41, 0x1a, 0x2c, 0x4e, 0x9f, 0xf7, 0xba, 0x22, 0xdd, 0x9a, 0xb1, 0x68, 0xc5,
+	0x62, 0xda, 0x8f, 0xbc, 0xe9, 0x91, 0x91, 0x33, 0x83, 0x3e, 0xa7, 0xcb, 0x96, 0x0a, 0xbb, 0xec,
+	0x3d, 0x7f, 0x14, 0x28, 0x29, 0xbb, 0xfe, 0x88, 0x4b, 0xe7, 0xe8, 0x11, 0x79, 0x85, 0x8a, 0x55,
+	0xec, 0xec, 0xcc, 0xc7, 0xcf, 0x8e, 0xd6, 0xe0, 0xdc, 0x69, 0x05, 0x57, 0x7e, 0x45, 0xb0, 0xd0,
+	0xc7, 0xfe, 0x11, 0xb1, 0x30, 0x1a, 0xc2, 0xea, 0xb6, 0x8f, 0x4d, 0x86, 0x93, 0x9d, 0x2e, 0xc7,
+	0x64, 0x75, 0xad, 0x23, 0x47, 0x4a, 0x27, 0x1c, 0x29, 0x9d, 0xdb, 0x7c, 0xa4, 0x68, 0xff, 0xff,
+	0xfe, 0xf7, 0xbf, 0x7e, 0x2a, 0x9d, 0xd7, 0x9a, 0xfa, 0xd1, 0x7b, 0x7a, 0x58, 0x6d, 0xdd, 0x9c,
+	0xb6, 0xa8, 0x8f, 0x95, 0x36, 0xe7, 0xf9, 0xd2, 0xa3, 0xd8, 0x67, 0xaf, 0xcd, 0xa3, 0xce, 0xe4,
+	0xb9, 0x0f, 0xf5, 0x1d, 0x9c, 0x22, 0x59, 0x10, 0x24, 0xbd, 0xae, 0x9a, 0xc3, 0xa6, 0xbd, 0x29,
+	0x50, 0x2f, 0xa0, 0xf3, 0x45, 0xa8, 0xfa, 0x71, 0xaf, 0x7b, 0x82, 0x1e, 0x41, 0x23, 0x8d, 0x2b,
+	0x5a, 0xdb, 0x4c, 0xec, 0xb6, 0xc0, 0x7e, 0x03, 0x69, 0x33, 0xb1, 0x75, 0x31, 0x37, 0x1e, 0xc2,
+	0x6a, 0x17, 0xdb, 0x38, 0x5d, 0x88, 0x08, 0xbf, 0xc8, 0x95, 0x40, 0x7f, 0xfb, 0x25, 0xfa, 0x1d,
+	0x58, 0x4f, 0xe9, 0x27, 0x98, 0x8a, 0x89, 0x80, 0x0a, 0x90, 0xd5, 0x46, 0x26, 0x23, 0x3e, 0x6e,
+	0x5e, 0xea, 0x97, 0x9c, 0x18, 0x36, 0x9c, 0xdd, 0xf5, 0x5d, 0x0b, 0x53, 0x9a, 0xf3, 0xa1, 0xb1,
+	0x1e, 0x21, 0x27, 0x1f, 0xa8, 0xcd, 0xec, 0x03, 0x39, 0x9f, 0xb5, 0x73, 0x82, 0x76, 0x4d, 0x3b,
+	0x9d, 0xa0, 0xe5, 0xc7, 0x9f, 0x57, 0xfd, 0x01, 0x2c, 0xcb, 0xd3, 0x15, 0x75, 0xf7, 0x64, 0x17,
+	0x2a, 0x74, 0xef, 0xa2, 0x80, 0xdd, 0x50, 0xd7, 0x12, 0xb0, 0x51, 0x93, 0xe4, 0xd8, 0x9f, 0xc0,
+	0xa9, 0x1d, 0x3c, 0x05, 0x8e, 0x0a, 0x92, 0x64, 0x08, 0x4f, 0x27, 0xda, 0xc8, 0x47, 0x92, 0x55,
+	0xb8, 0x0f, 0x8b, 0x31, 0xac, 0x62, 0xeb, 0x97, 0x13, 0xd8, 0x54, 0x6b, 0x09, 0xf0, 0x26, 0x2a,
+	0x90, 0x89, 0xee, 0xc3, 0xb2, 0x3c, 0x3c, 0x59, 0x99, 0x2f, 0xb9, 0x4d, 0xed, 0x99, 0x7a, 0x3f,
+	0x87, 0x5a, 0x7f, 0x3c, 0xa0, 0x96, 0x4f, 0x06, 0xb8, 0x50, 0x2c, 0x08, 0x2a, 0x31, 0x4a, 0xb4,
+	0x0d, 0x81, 0x7a, 0x06, 0xad, 0x26, 0x50, 0x31, 0x7f, 0x46, 0x2f, 0x2b, 0xe8, 0x31, 0xac, 0xcb,
+	0x6e, 0x93, 0xfd, 0x60, 0x29, 0x98, 0x06, 0x85, 0xfa, 0x2f, 0x08, 0xa6, 0xb3, 0x5a, 0x23, 0xc1,
+	0x14, 0x4c, 0x7a, 0x5e, 0xb7, 0xc7, 0xb0, 0x2e, 0xcf, 0xc4, 0x7f, 0xc6, 0xa5, 0x16, 0x72, 0x3d,
+	0x10, 0xdd, 0x21, 0x4b, 0x14, 0xab, 0x42, 0x2e, 0x63, 0x78, 0xfe, 0xd0, 0xd9, 0x3c, 0x64, 0x59,
+	0x83, 0x21, 0x9c, 0xc9, 0xc3, 0x2e, 0x3e, 0x3c, 0xeb, 0xf9, 0x5c, 0x34, 0xbc, 0x43, 0x28, 0x37,
+	0x0d, 0xf4, 0x10, 0xd6, 0xe5, 0x19, 0x9a, 0x99, 0xc6, 0xcc, 0x6b, 0xd4, 0x9e, 0x91, 0x86, 0x03,
+	0x4b, 0x3b, 0x98, 0xc5, 0xe6, 0xe2, 0x8a, 0x00, 0x9d, 0x06, 0xd4, 0x74, 0x40, 0xbb, 0x2e, 0x50,
+	0x3f, 0x40, 0x57, 0x13, 0xa8, 0x5e, 0xb4, 0x21, 0x68, 0x9f, 0xc7, 0x72, 0x9a, 0x9f, 0xe8, 0xc7,
+	0xd3, 0xf1, 0x7c, 0x82, 0xbe, 0x86, 0xba, 0x2c, 0xff, 0x2c, 0xca, 0x7f, 0x37, 0x6a, 0x62, 0xcc,
+	0xbc, 0xe8, 0x4f, 0xa1, 0x2e, 0x0d, 0x7b, 0x15, 0x86, 0x20, 0xb7, 0xf6, 0x2b, 0xe5, 0xf6, 0x9d,
+	0x02, 0xa7, 0x77, 0x30, 0x4b, 0x7d, 0x68, 0xac, 0xca, 0x3f, 0x53, 0x89, 0xa0, 0x9a, 0x17, 0xd4,
+	0x6e, 0x0a, 0xf2, 0xeb, 0xe8, 0xa3, 0x4c, 0x33, 0xcd, 0x0a, 0x48, 0x7d, 0xab, 0x9c, 0xe8, 0xc7,
+	0xf7, 0xfc, 0xd1, 0x09, 0xb2, 0xa1, 0x21, 0xed, 0xfd, 0x27, 0x22, 0x8a, 0x4c, 0x78, 0x5b, 0xe8,
+	0xb8, 0xa8, 0x9e, 0x9b, 0xa5, 0x83, 0x5b, 0xfd, 0x83, 0x02, 0x0d, 0xe9, 0xf5, 0xeb, 0xd0, 0x05,
+	0x69, 0xb7, 0x5f, 0x3d, 0xed, 0x5b, 0xf5, 0xdf, 0x5e, 0xb4, 0x94, 0x67, 0x2f, 0x5a, 0xca, 0xf3,
+	0x17, 0x2d, 0xe5, 0x97, 0x3f, 0x5b, 0xff, 0x1b, 0x54, 0x04, 0xc9, 0xd5, 0xbf, 0x03, 0x00, 0x00,
+	0xff, 0xff, 0x56, 0x14, 0x80, 0x1f, 0xe1, 0x0f, 0x00, 0x00,
 }

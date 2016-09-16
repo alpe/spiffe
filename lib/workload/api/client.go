@@ -104,11 +104,33 @@ func (c *Client) GetCertAuthority(ctx context.Context, id string) (*workload.Cer
 		err = trail.FromGRPC(err, header)
 		return nil, trace.Wrap(err)
 	}
-	return &workload.CertAuthority{
-		ID:         re.ID,
-		Cert:       re.Cert,
-		PrivateKey: re.PrivateKey,
-	}, nil
+	return certAuthorityFromGRPC(re), nil
+}
+
+// GetCertAuthorityCert returns Certificate Authority Certificate by given ID
+func (c *Client) GetCertAuthorityCert(ctx context.Context, id string) (*workload.CertAuthority, error) {
+	var header metadata.MD
+	re, err := c.Client.GetCertAuthorityCert(ctx, &ID{ID: id}, grpc.Header(&header))
+	if err != nil {
+		err = trail.FromGRPC(err, header)
+		return nil, trace.Wrap(err)
+	}
+	return certAuthorityFromGRPC(re), nil
+}
+
+// GetCertAuthoritiesCerts returns Certificate Authority Certificates
+func (c *Client) GetCertAuthoritiesCerts(ctx context.Context) ([]workload.CertAuthority, error) {
+	var header metadata.MD
+	re, err := c.Client.GetCertAuthoritiesCerts(ctx, &empty.Empty{}, grpc.Header(&header))
+	if err != nil {
+		err = trail.FromGRPC(err, header)
+		return nil, trace.Wrap(err)
+	}
+	out := make([]workload.CertAuthority, len(re.CertAuthorities))
+	for i := range re.CertAuthorities {
+		out[i] = *certAuthorityFromGRPC(re.CertAuthorities[i])
+	}
+	return out, nil
 }
 
 // DeleteCertAuthority deletes Certificate Authority by ID
@@ -159,11 +181,30 @@ func (c *Client) GetWorkload(ctx context.Context, id string) (*workload.Workload
 	return workloadFromGRPC(re)
 }
 
+// GetWorkloads returns list of workloads
+func (c *Client) GetWorkloads(ctx context.Context) ([]workload.Workload, error) {
+	var header metadata.MD
+	re, err := c.Client.GetWorkloads(ctx, &empty.Empty{}, grpc.Header(&header))
+	if err != nil {
+		err = trail.FromGRPC(err, header)
+		return nil, trace.Wrap(err)
+	}
+	out := make([]workload.Workload, len(re.Workloads))
+	for i := range re.Workloads {
+		w, err := workloadFromGRPC(re.Workloads[i])
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		out[i] = *w
+	}
+	return out, nil
+}
+
 // Subscribe returns a stream of events associated with given workload IDs
 // if you wish to cancel the stream, use ctx.Close
 // eventC will be closed by Subscribe function on errors or
 // cancelled subscribe
-func (c *Client) Subscribe(ctx context.Context, eventC chan *workload.WorkloadEvent) error {
+func (c *Client) Subscribe(ctx context.Context, eventC chan *workload.Event) error {
 	var header metadata.MD
 	stream, err := c.Client.Subscribe(ctx, &empty.Empty{}, grpc.Header(&header))
 	if err != nil {
@@ -184,7 +225,7 @@ func (c *Client) Subscribe(ctx context.Context, eventC chan *workload.WorkloadEv
 				log.Error(trace.DebugReport(err))
 				return
 			}
-			out, err := workloadEventFromGRPC(event)
+			out, err := eventFromGRPC(event)
 			if err != nil {
 				err = trail.FromGRPC(err, header)
 				log.Error(trace.DebugReport(err))
@@ -209,6 +250,32 @@ func (c *Client) CreateTrustedRootBundle(ctx context.Context, bundle workload.Tr
 		return trace.Wrap(err)
 	}
 	return nil
+}
+
+// UpsertTrustedRootBundle creates trusted root certificate bundle
+func (c *Client) UpsertTrustedRootBundle(ctx context.Context, bundle workload.TrustedRootBundle) error {
+	var header metadata.MD
+	_, err := c.Client.UpsertTrustedRootBundle(ctx, bundleToGRPC(&bundle), grpc.Header(&header))
+	if err != nil {
+		err = trail.FromGRPC(err, header)
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// GetTrustedRootBundles returns a list of trusted root bundles
+func (c *Client) GetTrustedRootBundles(ctx context.Context) ([]workload.TrustedRootBundle, error) {
+	var header metadata.MD
+	re, err := c.Client.GetTrustedRootBundles(ctx, &empty.Empty{}, grpc.Header(&header))
+	if err != nil {
+		err = trail.FromGRPC(err, header)
+		return nil, trace.Wrap(err)
+	}
+	out := make([]workload.TrustedRootBundle, len(re.Bundles))
+	for i := range re.Bundles {
+		out[i] = *bundleFromGRPC(re.Bundles[i])
+	}
+	return out, nil
 }
 
 // GetTrustedRoot returns trusted root certificate by its ID

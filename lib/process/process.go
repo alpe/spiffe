@@ -275,7 +275,7 @@ func (p *Process) initLocalService(ctx context.Context) error {
 				return trace.Wrap(err)
 			}
 		}
-		if _, err = p.localService.GetCertAuthority(ctx, constants.AdminOrg); err != nil {
+		if ca, err = p.localService.GetCertAuthority(ctx, constants.AdminOrg); err != nil {
 			return trace.Wrap(err)
 		}
 	}

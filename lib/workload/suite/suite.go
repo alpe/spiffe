@@ -71,7 +71,7 @@ func (s *WorkloadSuite) WorkloadsCRUD(c *C) {
 
 func (s *WorkloadSuite) Events(c *C) {
 	ctx, stopSubscribe := context.WithCancel(context.TODO())
-	eventsC := make(chan *workload.WorkloadEvent, 100)
+	eventsC := make(chan *workload.Event, 100)
 	err := s.C.Subscribe(ctx, eventsC)
 
 	// This is ugly, but as subscribe is async, we need to make sure
@@ -96,29 +96,101 @@ func (s *WorkloadSuite) Events(c *C) {
 
 	select {
 	case e := <-eventsC:
-		c.Assert(e, DeepEquals, &workload.WorkloadEvent{
+		c.Assert(e, DeepEquals, &workload.Event{
 			ID:       w.ID,
-			Type:     workload.EventWorkloadUpdated,
+			Type:     workload.EventTypeWorkload,
+			Action:   workload.EventActionUpdated,
 			Workload: &w,
 		})
 	case <-time.After(time.Second):
 		c.Fatal("timeout waiting for workload update")
 	}
 
-	err = s.C.DeleteWorkload(ctx, w.ID)
+	ca := workload.CertAuthority{
+		ID:         "example.com",
+		Cert:       []byte(CertAuthorityCertPEM),
+		PrivateKey: []byte(CertAuthorityKeyPEM),
+	}
+	err = s.C.UpsertCertAuthority(ctx, ca)
 	c.Assert(err, IsNil)
-
-	_, err = s.C.GetWorkload(ctx, w.ID)
-	c.Assert(trace.IsNotFound(err), Equals, true)
+	ca.PrivateKey = nil
 
 	select {
 	case e := <-eventsC:
-		c.Assert(e, DeepEquals, &workload.WorkloadEvent{
-			ID:   w.ID,
-			Type: workload.EventWorkloadDeleted,
+		c.Assert(e, DeepEquals, &workload.Event{
+			ID:            ca.ID,
+			Type:          workload.EventTypeCertAuthority,
+			Action:        workload.EventActionUpdated,
+			CertAuthority: &ca,
+		})
+	case <-time.After(time.Second):
+		c.Fatal("timeout waiting for ca update")
+	}
+
+	bundle := workload.TrustedRootBundle{
+		ID: "prod",
+		Certs: []workload.TrustedRootCert{{
+			ID:   "example.com",
+			Cert: []byte(CertAuthorityCertPEM),
+		}},
+	}
+
+	err = s.C.UpsertTrustedRootBundle(ctx, bundle)
+	c.Assert(err, IsNil)
+	ca.PrivateKey = nil
+
+	select {
+	case e := <-eventsC:
+		c.Assert(e, DeepEquals, &workload.Event{
+			ID:     bundle.ID,
+			Type:   workload.EventTypeTrustedRootBundle,
+			Action: workload.EventActionUpdated,
+			Bundle: &bundle,
+		})
+	case <-time.After(time.Second):
+		c.Fatal("timeout waiting for ca update")
+	}
+
+	err = s.C.DeleteWorkload(ctx, w.ID)
+	c.Assert(err, IsNil)
+
+	select {
+	case e := <-eventsC:
+		c.Assert(e, DeepEquals, &workload.Event{
+			ID:     w.ID,
+			Type:   workload.EventTypeWorkload,
+			Action: workload.EventActionDeleted,
 		})
 	case <-time.After(time.Second):
 		c.Fatal("timeout waiting for workload update")
+	}
+
+	err = s.C.DeleteCertAuthority(ctx, ca.ID)
+	c.Assert(err, IsNil)
+
+	select {
+	case e := <-eventsC:
+		c.Assert(e, DeepEquals, &workload.Event{
+			ID:     ca.ID,
+			Type:   workload.EventTypeCertAuthority,
+			Action: workload.EventActionDeleted,
+		})
+	case <-time.After(time.Second):
+		c.Fatal("timeout waiting for update")
+	}
+
+	err = s.C.DeleteTrustedRootBundle(ctx, bundle.ID)
+	c.Assert(err, IsNil)
+
+	select {
+	case e := <-eventsC:
+		c.Assert(e, DeepEquals, &workload.Event{
+			ID:     bundle.ID,
+			Type:   workload.EventTypeTrustedRootBundle,
+			Action: workload.EventActionDeleted,
+		})
+	case <-time.After(time.Second):
+		c.Fatal("timeout waiting for update")
 	}
 
 	stopSubscribe()

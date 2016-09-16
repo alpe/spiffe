@@ -113,9 +113,88 @@
         ]
       }
     },
+    "/v1/workload/authorities/{ID}/cert": {
+      "get": {
+        "operationId": "GetCertAuthorityCert",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/apiCertAuthority"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "ID",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "string"
+          }
+        ],
+        "tags": [
+          "Service"
+        ]
+      }
+    },
+    "/v1/workload/authoritiescerts": {
+      "get": {
+        "operationId": "GetCertAuthoritiesCerts",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/apiCertAuthorities"
+            }
+          }
+        },
+        "tags": [
+          "Service"
+        ]
+      }
+    },
     "/v1/workload/bundles": {
+      "get": {
+        "operationId": "GetTrustedRootBundles",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/apiTrustedRootBundles"
+            }
+          }
+        },
+        "tags": [
+          "Service"
+        ]
+      },
       "post": {
         "operationId": "CreateTrustedRootBundle",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/protobufEmpty"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/apiTrustedRootBundle"
+            }
+          }
+        ],
+        "tags": [
+          "Service"
+        ]
+      },
+      "put": {
+        "operationId": "UpsertTrustedRootBundle",
         "responses": {
           "200": {
             "description": "",
@@ -182,6 +261,22 @@
             "format": "string"
           }
         ],
+        "tags": [
+          "Service"
+        ]
+      }
+    },
+    "/v1/workload/events": {
+      "get": {
+        "operationId": "Subscribe",
+        "responses": {
+          "200": {
+            "description": "(streaming responses)",
+            "schema": {
+              "$ref": "#/definitions/apiEvent"
+            }
+          }
+        },
         "tags": [
           "Service"
         ]
@@ -418,6 +513,20 @@
       }
     },
     "/v1/workload/workloads": {
+      "get": {
+        "operationId": "GetWorkloads",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/apiWorkloads"
+            }
+          }
+        },
+        "tags": [
+          "Service"
+        ]
+      },
       "put": {
         "operationId": "UpsertWorkload",
         "responses": {
@@ -490,22 +599,6 @@
           "Service"
         ]
       }
-    },
-    "/v1/workload/workloadsevents": {
-      "get": {
-        "operationId": "Subscribe",
-        "responses": {
-          "200": {
-            "description": "(streaming responses)",
-            "schema": {
-              "$ref": "#/definitions/apiWorkloadEvent"
-            }
-          }
-        },
-        "tags": [
-          "Service"
-        ]
-      }
     }
   },
   "definitions": {
@@ -540,6 +633,17 @@
         "MaxTTL": {
           "type": "string",
           "format": "int64"
+        }
+      }
+    },
+    "apiCertAuthorities": {
+      "type": "object",
+      "properties": {
+        "CertAuthorities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/apiCertAuthority"
+          }
         }
       }
     },
@@ -583,6 +687,32 @@
         "Cert": {
           "type": "string",
           "format": "byte"
+        }
+      }
+    },
+    "apiEvent": {
+      "type": "object",
+      "properties": {
+        "Action": {
+          "type": "string",
+          "format": "string"
+        },
+        "Bundle": {
+          "$ref": "#/definitions/apiTrustedRootBundle"
+        },
+        "CertAuthority": {
+          "$ref": "#/definitions/apiCertAuthority"
+        },
+        "ID": {
+          "type": "string",
+          "format": "string"
+        },
+        "Type": {
+          "type": "string",
+          "format": "string"
+        },
+        "Workload": {
+          "$ref": "#/definitions/apiWorkload"
         }
       }
     },
@@ -644,6 +774,13 @@
     "apiTrustedRootBundle": {
       "type": "object",
       "properties": {
+        "CertAuthorityIDs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "string"
+          }
+        },
         "Certs": {
           "type": "array",
           "items": {
@@ -653,6 +790,17 @@
         "ID": {
           "type": "string",
           "format": "string"
+        }
+      }
+    },
+    "apiTrustedRootBundles": {
+      "type": "object",
+      "properties": {
+        "Bundles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/apiTrustedRootBundle"
+          }
         }
       }
     },
@@ -678,19 +826,14 @@
         }
       }
     },
-    "apiWorkloadEvent": {
+    "apiWorkloads": {
       "type": "object",
       "properties": {
-        "ID": {
-          "type": "string",
-          "format": "string"
-        },
-        "Type": {
-          "type": "string",
-          "format": "string"
-        },
-        "Workload": {
-          "$ref": "#/definitions/apiWorkload"
+        "Workloads": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/apiWorkload"
+          }
         }
       }
     },

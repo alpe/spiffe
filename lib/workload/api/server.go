@@ -57,11 +57,7 @@ func (s *Server) ProcessCertificateRequest(ctx context.Context, req *Certificate
 }
 
 func (s *Server) CreateCertAuthority(ctx context.Context, ca *CertAuthority) (*empty.Empty, error) {
-	err := s.Service.CreateCertAuthority(ctx, workload.CertAuthority{
-		ID:         ca.ID,
-		Cert:       ca.Cert,
-		PrivateKey: ca.PrivateKey,
-	})
+	err := s.Service.CreateCertAuthority(ctx, *certAuthorityFromGRPC(ca))
 	if err != nil {
 		return nil, trail.Send(ctx, err)
 	}
@@ -69,11 +65,7 @@ func (s *Server) CreateCertAuthority(ctx context.Context, ca *CertAuthority) (*e
 }
 
 func (s *Server) UpsertCertAuthority(ctx context.Context, ca *CertAuthority) (*empty.Empty, error) {
-	err := s.Service.UpsertCertAuthority(ctx, workload.CertAuthority{
-		ID:         ca.ID,
-		Cert:       ca.Cert,
-		PrivateKey: ca.PrivateKey,
-	})
+	err := s.Service.UpsertCertAuthority(ctx, *certAuthorityFromGRPC(ca))
 	if err != nil {
 		return nil, trail.Send(ctx, err)
 	}
@@ -85,7 +77,27 @@ func (s *Server) GetCertAuthority(ctx context.Context, id *ID) (*CertAuthority, 
 	if err != nil {
 		return nil, trail.Send(ctx, err)
 	}
-	return &CertAuthority{ID: ca.ID, Cert: ca.Cert, PrivateKey: ca.PrivateKey}, nil
+	return certAuthorityToGRPC(ca), nil
+}
+
+func (s *Server) GetCertAuthorityCert(ctx context.Context, id *ID) (*CertAuthority, error) {
+	ca, err := s.Service.GetCertAuthorityCert(ctx, id.ID)
+	if err != nil {
+		return nil, trail.Send(ctx, err)
+	}
+	return certAuthorityToGRPC(ca), nil
+}
+
+func (s *Server) GetCertAuthoritiesCerts(ctx context.Context, _ *empty.Empty) (*CertAuthorities, error) {
+	cas, err := s.Service.GetCertAuthoritiesCerts(ctx)
+	if err != nil {
+		return nil, trail.Send(ctx, err)
+	}
+	out := &CertAuthorities{CertAuthorities: make([]*CertAuthority, len(cas))}
+	for i := range cas {
+		out.CertAuthorities[i] = certAuthorityToGRPC(&cas[i])
+	}
+	return out, nil
 }
 
 func (s *Server) DeleteCertAuthority(ctx context.Context, id *ID) (*empty.Empty, error) {
@@ -116,6 +128,21 @@ func (s *Server) GetWorkload(ctx context.Context, id *ID) (*Workload, error) {
 	return workloadToGRPC(w)
 }
 
+func (s *Server) GetWorkloads(ctx context.Context, _ *empty.Empty) (*Workloads, error) {
+	ws, err := s.Service.GetWorkloads(ctx)
+	if err != nil {
+		return nil, trail.Send(ctx, err)
+	}
+	out := &Workloads{Workloads: make([]*Workload, len(ws))}
+	for i := range ws {
+		out.Workloads[i], err = workloadToGRPC(&ws[i])
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+	}
+	return out, nil
+}
+
 func (s *Server) DeleteWorkload(ctx context.Context, id *ID) (*empty.Empty, error) {
 	err := s.Service.DeleteWorkload(ctx, id.ID)
 	if err != nil {
@@ -125,7 +152,7 @@ func (s *Server) DeleteWorkload(ctx context.Context, id *ID) (*empty.Empty, erro
 }
 
 func (s *Server) Subscribe(_ *empty.Empty, stream Service_SubscribeServer) error {
-	eventsC := make(chan *workload.WorkloadEvent, 2)
+	eventsC := make(chan *workload.Event, 2)
 	ctx := stream.Context()
 	err := s.Service.Subscribe(ctx, eventsC)
 	if err != nil {
@@ -138,7 +165,7 @@ func (s *Server) Subscribe(_ *empty.Empty, stream Service_SubscribeServer) error
 			return nil
 		case event := <-eventsC:
 			log.Debugf("got event to send: %v", event)
-			out, err := workloadEventToGRPC(event)
+			out, err := eventToGRPC(event)
 			if err != nil {
 				log.Error(trace.DebugReport(err))
 				return trail.Send(ctx, err)
@@ -161,12 +188,32 @@ func (s *Server) CreateTrustedRootBundle(ctx context.Context, bundle *TrustedRoo
 	return &empty.Empty{}, nil
 }
 
+func (s *Server) UpsertTrustedRootBundle(ctx context.Context, bundle *TrustedRootBundle) (*empty.Empty, error) {
+	err := s.Service.UpsertTrustedRootBundle(ctx, *bundleFromGRPC(bundle))
+	if err != nil {
+		return nil, trail.Send(ctx, err)
+	}
+	return &empty.Empty{}, nil
+}
+
 func (s *Server) GetTrustedRootBundle(ctx context.Context, id *ID) (*TrustedRootBundle, error) {
 	out, err := s.Service.GetTrustedRootBundle(ctx, id.ID)
 	if err != nil {
 		return nil, trail.Send(ctx, err)
 	}
 	return bundleToGRPC(out), nil
+}
+
+func (s *Server) GetTrustedRootBundles(ctx context.Context, _ *empty.Empty) (*TrustedRootBundles, error) {
+	bundles, err := s.Service.GetTrustedRootBundles(ctx)
+	if err != nil {
+		return nil, trail.Send(ctx, err)
+	}
+	out := &TrustedRootBundles{Bundles: make([]*TrustedRootBundle, len(bundles))}
+	for i := range bundles {
+		out.Bundles[i] = bundleToGRPC(&bundles[i])
+	}
+	return out, nil
 }
 
 func (s *Server) DeleteTrustedRootBundle(ctx context.Context, id *ID) (*empty.Empty, error) {
@@ -306,8 +353,9 @@ func permissionToGRPC(in *workload.Permission) *Permission {
 
 func bundleFromGRPC(in *TrustedRootBundle) *workload.TrustedRootBundle {
 	out := workload.TrustedRootBundle{
-		ID:    in.ID,
-		Certs: make([]workload.TrustedRootCert, len(in.Certs)),
+		ID:               in.ID,
+		Certs:            make([]workload.TrustedRootCert, len(in.Certs)),
+		CertAuthorityIDs: in.CertAuthorityIDs,
 	}
 	for i, c := range in.Certs {
 		out.Certs[i] = workload.TrustedRootCert{
@@ -321,8 +369,9 @@ func bundleFromGRPC(in *TrustedRootBundle) *workload.TrustedRootBundle {
 
 func bundleToGRPC(in *workload.TrustedRootBundle) *TrustedRootBundle {
 	out := TrustedRootBundle{
-		ID:    in.ID,
-		Certs: make([]*TrustedRootBundle_TrustedRootCert, len(in.Certs)),
+		ID:               in.ID,
+		Certs:            make([]*TrustedRootBundle_TrustedRootCert, len(in.Certs)),
+		CertAuthorityIDs: in.CertAuthorityIDs,
 	}
 	for i, c := range in.Certs {
 		out.Certs[i] = &TrustedRootBundle_TrustedRootCert{
@@ -334,10 +383,11 @@ func bundleToGRPC(in *workload.TrustedRootBundle) *TrustedRootBundle {
 	return &out
 }
 
-func workloadEventFromGRPC(in *WorkloadEvent) (*workload.WorkloadEvent, error) {
-	out := workload.WorkloadEvent{
-		ID:   in.ID,
-		Type: in.Type,
+func eventFromGRPC(in *Event) (*workload.Event, error) {
+	out := workload.Event{
+		ID:     in.ID,
+		Type:   in.Type,
+		Action: in.Action,
 	}
 	var err error
 	if in.Workload != nil {
@@ -346,13 +396,20 @@ func workloadEventFromGRPC(in *WorkloadEvent) (*workload.WorkloadEvent, error) {
 			return nil, trace.Wrap(err)
 		}
 	}
+	if in.Bundle != nil {
+		out.Bundle = bundleFromGRPC(in.Bundle)
+	}
+	if in.CertAuthority != nil {
+		out.CertAuthority = certAuthorityFromGRPC(in.CertAuthority)
+	}
 	return &out, nil
 }
 
-func workloadEventToGRPC(in *workload.WorkloadEvent) (*WorkloadEvent, error) {
-	out := WorkloadEvent{
-		ID:   in.ID,
-		Type: in.Type,
+func eventToGRPC(in *workload.Event) (*Event, error) {
+	out := Event{
+		ID:     in.ID,
+		Type:   in.Type,
+		Action: in.Action,
 	}
 	var err error
 	if in.Workload != nil {
@@ -360,6 +417,12 @@ func workloadEventToGRPC(in *workload.WorkloadEvent) (*WorkloadEvent, error) {
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
+	}
+	if in.Bundle != nil {
+		out.Bundle = bundleToGRPC(in.Bundle)
+	}
+	if in.CertAuthority != nil {
+		out.CertAuthority = certAuthorityToGRPC(in.CertAuthority)
 	}
 	return &out, nil
 }
@@ -398,4 +461,20 @@ func workloadToGRPC(in *workload.Workload) (*Workload, error) {
 		}
 	}
 	return &out, nil
+}
+
+func certAuthorityFromGRPC(in *CertAuthority) *workload.CertAuthority {
+	return &workload.CertAuthority{
+		ID:         in.ID,
+		Cert:       in.Cert,
+		PrivateKey: in.PrivateKey,
+	}
+}
+
+func certAuthorityToGRPC(in *workload.CertAuthority) *CertAuthority {
+	return &CertAuthority{
+		ID:         in.ID,
+		Cert:       in.Cert,
+		PrivateKey: in.PrivateKey,
+	}
 }

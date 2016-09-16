@@ -163,7 +163,8 @@ func (r *Renewer) Start(ctx context.Context) error {
 				return trace.Wrap(err)
 			}
 		case <-ctx.Done():
-			r.Debugf("context is closing, returning")
+			r.Debugf("context is closing, returning", r)
+			return nil
 		}
 	}
 }

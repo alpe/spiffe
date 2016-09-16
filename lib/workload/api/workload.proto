@@ -29,6 +29,10 @@ message CertAuthority {
 	bytes PrivateKey = 3;
 }
 
+message CertAuthorities {
+    repeated CertAuthority CertAuthorities = 1;
+}
+
 message TrustedRootBundle {
     message TrustedRootCert {
 	    string ID = 1;
@@ -37,6 +41,11 @@ message TrustedRootBundle {
     }
     string ID = 1;
     repeated TrustedRootCert Certs = 2;
+    repeated string CertAuthorityIDs = 3;
+}
+
+message TrustedRootBundles {
+    repeated TrustedRootBundle Bundles = 1;
 }
 
 message Workload {
@@ -51,10 +60,17 @@ message Workload {
 	repeated string TrustedBundleIDs = 3;
 }
 
-message WorkloadEvent {
+message Workloads {
+    repeated Workload Workloads = 1;
+}
+
+message Event {
 	string ID  = 1;
 	string Type = 2;
-	Workload Workload = 3;
+	string Action = 3;    
+	Workload Workload = 4;
+	TrustedRootBundle Bundle = 5;
+	CertAuthority CertAuthority = 6;
 }
 
 message Permission {
@@ -96,12 +112,24 @@ service Service {
 			get: "/v1/workload/authorities/{ID}"
 		};
     }
+
+    rpc GetCertAuthorityCert(ID) returns (CertAuthority) {
+        option (google.api.http) = {
+			get: "/v1/workload/authorities/{ID}/cert"
+		};
+    }    
     
 	rpc DeleteCertAuthority(ID) returns (google.protobuf.Empty) {
         option (google.api.http) = {
 			delete: "/v1/workload/authorities/{ID}"
 		};
     }
+
+    rpc GetCertAuthoritiesCerts(google.protobuf.Empty) returns (CertAuthorities) {
+        option (google.api.http) = {
+			get: "/v1/workload/authoritiescerts"
+		};
+    }   
 
     rpc ProcessCertificateRequest(CertificateRequest) returns (CertificateResponse) {
         option (google.api.http) = {
@@ -122,6 +150,12 @@ service Service {
 			get: "/v1/workload/workloads/{ID}"
 		};
     }
+
+    rpc GetWorkloads(google.protobuf.Empty) returns (Workloads) {
+        option (google.api.http) = {
+			get: "/v1/workload/workloads"
+		};
+    }
             
 	rpc DeleteWorkload(ID) returns (google.protobuf.Empty) {
         option (google.api.http) = {
@@ -129,9 +163,9 @@ service Service {
 		};
     }
 
-	rpc Subscribe(google.protobuf.Empty) returns (stream WorkloadEvent) {
+	rpc Subscribe(google.protobuf.Empty) returns (stream Event) {
         option (google.api.http) = {
-			get: "/v1/workload/workloadsevents"
+			get: "/v1/workload/events"
 		};
     }
 
@@ -143,9 +177,22 @@ service Service {
 		};
     }
 
+    rpc UpsertTrustedRootBundle(TrustedRootBundle) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+			put: "/v1/workload/bundles"
+			body: "*"
+		};
+    }
+
 	rpc GetTrustedRootBundle(ID) returns (TrustedRootBundle) {
         option (google.api.http) = {
 			get: "/v1/workload/bundles/{ID}"
+		};
+    }
+
+	rpc GetTrustedRootBundles(google.protobuf.Empty) returns (TrustedRootBundles) {
+        option (google.api.http) = {
+			get: "/v1/workload/bundles"
 		};
     }
 

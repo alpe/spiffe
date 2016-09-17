@@ -221,8 +221,7 @@ func (b *Backend) getWatchAtLatestIndex(ctx context.Context, key string) (etcd.W
 	err = convertErr(err)
 	if err == nil {
 		return b.keys.Watcher(key, &etcd.WatcherOptions{
-			AfterIndex: re.Node.ModifiedIndex,
-			Recursive:  true,
+			Recursive: true,
 		}), re, nil
 	}
 	if !trace.IsNotFound(err) {
@@ -242,8 +241,7 @@ func (b *Backend) getWatchAtLatestIndex(ctx context.Context, key string) (etcd.W
 		}
 	}
 	return b.keys.Watcher(key, &etcd.WatcherOptions{
-		AfterIndex: re.Node.ModifiedIndex,
-		Recursive:  true,
+		Recursive: true,
 	}), re, nil
 }
 
@@ -398,14 +396,14 @@ func (b *Backend) Subscribe(ctx context.Context, eventC chan *workload.Event) er
 		for {
 			re, err = watcher.Next(ctx)
 			if err == nil {
-				log.Infof("processEvent(%v,%v)", re.Action, re.Node.Key)
+				log.Debugf("processEvent(%v,%v)", re.Action, re.Node.Key)
 				event := b.unmarshalEvent(ctx, re)
 				if event != nil {
 					select {
 					case eventC <- event:
-						log.Infof("sent event(action=%v, type=%v, id=%v)", event.Action, event.Type, event.ID)
+						log.Debugf("sent event(action=%v, type=%v, id=%v)", event.Action, event.Type, event.ID)
 					case <-ctx.Done():
-						log.Infof("client is closing")
+						log.Debugf("client is closing")
 						return
 					default:
 						log.Warningf("blocked on sending to subscriber, possible deadlock")
@@ -415,20 +413,20 @@ func (b *Backend) Subscribe(ctx context.Context, eventC chan *workload.Event) er
 			} else {
 				select {
 				case <-ticker.C:
-					log.Infof("backoff on error %v", trace.DebugReport(err))
+					log.Warningf("backoff on error %v", trace.DebugReport(err))
 				}
 				if err == context.Canceled {
-					log.Infof("client is closing, return")
+					log.Debugf("client is closing, return")
 					return
 				} else if cerr, ok := err.(*etcd.ClusterError); ok {
 					if len(cerr.Errors) != 0 && cerr.Errors[0] == context.Canceled {
-						log.Infof("client is closing, return")
+						log.Debugf("client is closing, return")
 						return
 					}
 					log.Errorf("unexpected cluster error: %v (%v)", trace.DebugReport(err), cerr.Detail())
 					continue
 				} else if cerr, ok := err.(etcd.Error); ok && cerr.Code == etcd.ErrorCodeEventIndexCleared {
-					log.Infof("watch index error, resetting watch index: %v", cerr)
+					log.Debugf("watch index error, resetting watch index: %v", cerr)
 					watcher, re, err = b.getWatchAtLatestIndex(ctx, baseKey)
 					if err != nil {
 						continue
@@ -443,7 +441,7 @@ func (b *Backend) Subscribe(ctx context.Context, eventC chan *workload.Event) er
 			}
 			select {
 			case <-ctx.Done():
-				log.Infof("context is closing, return")
+				log.Debugf("context is closing, return")
 				return
 			default:
 			}

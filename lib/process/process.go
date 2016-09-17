@@ -26,6 +26,7 @@ import (
 
 	"github.com/spiffe/spiffe/lib/constants"
 	"github.com/spiffe/spiffe/lib/identity"
+	"github.com/spiffe/spiffe/lib/toolbox"
 	"github.com/spiffe/spiffe/lib/workload"
 	"github.com/spiffe/spiffe/lib/workload/api"
 	"github.com/spiffe/spiffe/lib/workload/storage/etcdv2"
@@ -144,7 +145,7 @@ func (p *Process) startServer(ctx context.Context) error {
 	mem := workload.NewMemStorage()
 	eventsC := make(chan *workload.RenewedKeyPair, 1)
 
-	renewer, err := workload.NewRenewer(workload.RenewerConfig{
+	renewer, err := workload.NewCertRenewer(workload.CertRenewerConfig{
 		Clock: clockwork.NewRealClock(),
 		Entry: log.WithFields(log.Fields{
 			trace.Component: constants.ComponentSPIFFE,
@@ -209,7 +210,7 @@ func (p *Process) startServer(ctx context.Context) error {
 func (p *Process) initLocalAdminCreds(ctx context.Context) error {
 	keyPath := filepath.Join(p.StateDir, constants.AdminKeyFilename)
 	certPath := filepath.Join(p.StateDir, constants.AdminCertFilename)
-	renewer, err := workload.NewRenewer(workload.RenewerConfig{
+	renewer, err := workload.NewCertRenewer(workload.CertRenewerConfig{
 		Clock: clockwork.NewRealClock(),
 		Entry: log.WithFields(log.Fields{
 			trace.Component: constants.ComponentSPIFFE,
@@ -224,16 +225,16 @@ func (p *Process) initLocalAdminCreds(ctx context.Context) error {
 			TTL: constants.DefaultLocalCertTTL,
 		},
 		ReadKey: func() ([]byte, error) {
-			return ReadPath(keyPath)
+			return toolbox.ReadPath(keyPath)
 		},
 		ReadCert: func() ([]byte, error) {
-			return ReadPath(certPath)
+			return toolbox.ReadPath(certPath)
 		},
 		WriteKey: func(data []byte) error {
-			return WritePath(keyPath, data, constants.DefaultPrivateFileMask)
+			return toolbox.WritePath(keyPath, data, constants.DefaultPrivateFileMask)
 		},
 		WriteCert: func(data []byte) error {
-			return WritePath(certPath, data, constants.DefaultPrivateFileMask)
+			return toolbox.WritePath(certPath, data, constants.DefaultPrivateFileMask)
 		},
 		Service: p.localService,
 	})
@@ -280,7 +281,7 @@ func (p *Process) initLocalService(ctx context.Context) error {
 		}
 	}
 	caPath := filepath.Join(p.StateDir, constants.AdminCertCAFilename)
-	return WritePath(caPath, ca.Cert, constants.DefaultPrivateFileMask)
+	return toolbox.WritePath(caPath, ca.Cert, constants.DefaultPrivateFileMask)
 }
 
 func (p *Process) startService(ctx context.Context) error {

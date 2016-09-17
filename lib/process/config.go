@@ -17,12 +17,11 @@ limitations under the License.
 package process
 
 import (
-	"io/ioutil"
-	"os"
 	"path/filepath"
 
 	"github.com/spiffe/spiffe/lib/constants"
 	"github.com/spiffe/spiffe/lib/identity"
+	"github.com/spiffe/spiffe/lib/toolbox"
 	"github.com/spiffe/spiffe/lib/workload/storage/etcdv2"
 
 	log "github.com/Sirupsen/logrus"
@@ -71,49 +70,6 @@ func (cfg *Config) Check() error {
 	return nil
 }
 
-func NormalizePath(path string) (string, error) {
-	s, err := filepath.Abs(path)
-	if err != nil {
-		return "", trace.ConvertSystemError(err)
-	}
-	abs, err := filepath.EvalSymlinks(s)
-	if err != nil {
-		return "", trace.ConvertSystemError(err)
-	}
-	return abs, nil
-}
-
-func WritePath(path string, data []byte, perm os.FileMode) error {
-	err := ioutil.WriteFile(path, data, perm)
-	if err != nil {
-		return trace.ConvertSystemError(err)
-	}
-	return nil
-}
-
-func ReadPath(path string) ([]byte, error) {
-	abs, err := NormalizePath(path)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	bytes, err := ioutil.ReadFile(abs)
-	if err != nil {
-		return nil, trace.ConvertSystemError(err)
-	}
-	return bytes, nil
-}
-
-func StatDir(path string) (os.FileInfo, error) {
-	fi, err := os.Stat(path)
-	if err != nil {
-		return nil, trace.ConvertSystemError(err)
-	}
-	if !fi.IsDir() {
-		return nil, trace.BadParameter("%v is not a directory", path)
-	}
-	return fi, nil
-}
-
 func ConfigFromFile(fileName string) (*Config, error) {
 	if fileName == "" {
 		fileName = filepath.Join(constants.DefaultStateDir, constants.DefaultConfigFileName)
@@ -121,7 +77,7 @@ func ConfigFromFile(fileName string) (*Config, error) {
 
 	log.Debugf("look up config in %v", fileName)
 
-	data, err := ReadPath(fileName)
+	data, err := toolbox.ReadPath(fileName)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

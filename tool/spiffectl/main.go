@@ -10,7 +10,7 @@ import (
 
 	"github.com/spiffe/spiffe/lib/constants"
 	"github.com/spiffe/spiffe/lib/identity"
-	"github.com/spiffe/spiffe/lib/process"
+	"github.com/spiffe/spiffe/lib/toolbox"
 	"github.com/spiffe/spiffe/lib/workload/api"
 
 	log "github.com/Sirupsen/logrus"
@@ -38,13 +38,20 @@ func run() error {
 		keyPath    = app.Flag("key-file", "path to client private key file").Default(filepath.Join(constants.DefaultStateDir, constants.AdminKeyFilename)).ExistingFile()
 		caPath     = app.Flag("ca-file", "path to client certificate authority cert file").Default(filepath.Join(constants.DefaultStateDir, constants.AdminCertCAFilename)).ExistingFile()
 
-		cbundles              = app.Command("bundle", "operations on trusted root certificate bundles")
-		cbundlesList          = cbundles.Command("ls", "list trusted root certificate bundles")
+		cbundles     = app.Command("bundle", "operations on trusted root certificate bundles")
+		cbundlesList = cbundles.Command("ls", "list trusted root certificate bundles")
+
 		cbundlesCreate        = cbundles.Command("create", "create trusted root certificate bundles")
 		cbundlesCreateReplace = cbundlesCreate.Flag("replace", "replace bundle if it exists").Bool()
 		cbundlesCreateID      = cbundlesCreate.Flag("id", "unique bundle id").Required().String()
-		cbundlesCreateDirs    = cbundlesCreate.Flag("directory", "import certificates from directory").Strings()
+		cbundlesCreateDirs    = cbundlesCreate.Flag("dir", "import certificates from directory").Strings()
 		cbundlesCreateCAIDs   = cbundlesCreate.Flag("caid", "use existing certificate authority id").Strings()
+
+		cbundlesExport      = cbundles.Command("export", "export trusted root bundle to directory")
+		cbundlesExportWatch = cbundlesExport.Flag("watch", "watch and update bundle's directory if bundle gets updated").Bool()
+		cbundlesExportID    = cbundlesExport.Flag("id", "unique bundle id").Required().String()
+		cbundlesExportDir   = cbundlesExport.Flag("dir", "target directory [WARNING] all directory content's will be removed").Required().String()
+		cbundlesExportHooks = cbundlesExport.Flag("exec", "optional command to execute when bundle updates").Strings()
 
 		ccertAuthorities     = app.Command("ca", "operations on certificate authorities")
 		ccertAuthoritiesList = ccertAuthorities.Command("ls", "list certificate authorities")
@@ -59,17 +66,17 @@ func run() error {
 		identity.InitLoggerDebug()
 	}
 
-	certPEM, err := process.ReadPath(*certPath)
+	certPEM, err := toolbox.ReadPath(*certPath)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	keyPEM, err := process.ReadPath(*keyPath)
+	keyPEM, err := toolbox.ReadPath(*keyPath)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	caPEM, err := process.ReadPath(*caPath)
+	caPEM, err := toolbox.ReadPath(*caPath)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -100,7 +107,9 @@ func run() error {
 	case cbundlesList.FullCommand():
 		return bundlesList(ctx, client)
 	case cbundlesCreate.FullCommand():
-		return bundleCreate(ctx, client, *cbundlesCreateReplace, *cbundlesCreateID, *cbundlesCreateDirs, *cbundlesCreateCAIDs)
+		return bundleCreate(ctx, client, *cbundlesCreateID, *cbundlesCreateDirs, *cbundlesCreateCAIDs, *cbundlesCreateReplace)
+	case cbundlesExport.FullCommand():
+		return bundleExport(ctx, client, *cbundlesExportID, *cbundlesExportDir, *cbundlesExportWatch, *cbundlesExportHooks)
 	case ccertAuthoritiesList.FullCommand():
 		return certAuthoritiesList(ctx, client)
 	}

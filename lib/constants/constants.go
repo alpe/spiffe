@@ -34,6 +34,9 @@ const (
 	// ComponentSPIFFE is a name of the service
 	ComponentSPIFFE = "spiffe"
 
+	// ComponentCLI is a name of the CLI tool
+	ComponentCLI = "spiffectl"
+
 	// DefaultConfigFileName is a default config file name
 	DefaultConfigFileName = "spiffe.yaml"
 
@@ -51,6 +54,9 @@ const (
 
 	// DefaultLocalCertTTL is a default lifetime of a local certificate
 	DefaultLocalCertTTL = 10 * time.Hour
+
+	// DefaultSharedFileMask is for shared non executable files
+	DefaultSharedFileMask os.FileMode = 0644
 
 	// DefalutPrivateFileMask is for private non executable files
 	DefaultPrivateFileMask os.FileMode = 0600

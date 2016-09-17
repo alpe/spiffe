@@ -3,19 +3,20 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
-	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"github.com/spiffe/spiffe/lib/constants"
-	"github.com/spiffe/spiffe/lib/process"
+	"github.com/spiffe/spiffe/lib/toolbox"
 	"github.com/spiffe/spiffe/lib/workload"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/gravitational/trace"
 	"golang.org/x/net/context"
 )
 
-func bundleCreate(ctx context.Context, service workload.Service, replace bool, id string, directories []string, certAuthorityIDs []string) error {
+func bundleCreate(ctx context.Context, service workload.Service, id string, directories []string, certAuthorityIDs []string, replace bool) error {
 	if len(directories) == 0 && len(certAuthorityIDs) == 0 {
 		return trace.BadParameter("please provide directory or cert authority ids")
 	}
@@ -40,7 +41,7 @@ func bundleCreate(ctx context.Context, service workload.Service, replace bool, i
 				fmt.Printf("skipping directory %v\n", directory)
 				continue
 			}
-			data, err := process.ReadPath(filepath.Join(directory, f.Name()))
+			data, err := toolbox.ReadPath(filepath.Join(directory, f.Name()))
 			if err != nil {
 				fmt.Printf("skipping file %v, err: %v\n", f.Name(), err)
 				continue
@@ -66,6 +67,7 @@ func bundleCreate(ctx context.Context, service workload.Service, replace bool, i
 			return trace.Wrap(err)
 		}
 		fmt.Printf("bundle %v successfully updated\n", bundle.ID)
+		return nil
 	}
 	err := service.CreateTrustedRootBundle(ctx, bundle)
 	if err != nil {
@@ -75,16 +77,82 @@ func bundleCreate(ctx context.Context, service workload.Service, replace bool, i
 	return nil
 }
 
-func bundleExport(ctx context.Context, service workload.Service, targetDirectory string, watchUpdates bool) error {
-	if _, err := process.StatDir(targetDirectory); err != nil {
+func execHook(cmd string) {
+	args := strings.Split(cmd, " ")
+	out, err := exec.Command(args[0], args[1:]...).Output()
+	fmt.Printf("hook(%v): %v\n", cmd, string(out))
+	if err != nil {
+		log.Error(trace.DebugReport(err))
+	}
+}
+
+func bundleExport(ctx context.Context, service workload.Service, bundleID string, targetDir string, watchUpdates bool, hooks []string) error {
+	if _, err := toolbox.StatDir(targetDir); err != nil {
 		if !trace.IsNotFound(err) {
 			return trace.Wrap(err)
 		}
-		err = os.Mkdir(targetDirectory, constants.DefaultPrivateDirMask)
+		err = toolbox.Mkdir(targetDir, constants.DefaultPrivateDirMask)
 		if err != nil {
-			return trace.ConvertSystemError(err)
+			return trace.Wrap(err)
 		}
 	}
+
+	writeBundle := func(ctx context.Context, auths workload.Authorities, bundle *workload.TrustedRootBundle) error {
+		if err := toolbox.RemoveAllInDir(targetDir); err != nil {
+			return trace.Wrap(err)
+		}
+		err := workload.WriteBundleToDirectory(ctx, targetDir, service, bundle)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		return nil
+	}
+	if !watchUpdates {
+		bundle, err := service.GetTrustedRootBundle(ctx, bundleID)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		if err := writeBundle(ctx, service, bundle); err != nil {
+			return trace.Wrap(err)
+		}
+		fmt.Printf("%v successfully exported\n", bundleToString(bundle))
+		if len(hooks) != 0 {
+			for _, h := range hooks {
+				execHook(h)
+			}
+		}
+		return nil
+	}
+	eventsC := make(chan *workload.TrustedRootBundle, 10)
+	r, err := workload.NewBundleRenewer(workload.BundleRenewerConfig{
+		Entry:               log.WithFields(log.Fields{trace.Component: constants.ComponentCLI}),
+		TrustedRootBundleID: bundleID,
+		Service:             service,
+		WriteBundle:         writeBundle,
+		EventsC:             eventsC,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				log.Debugf("context is closing, returning")
+				return
+			case bundle := <-eventsC:
+				fmt.Printf("%v successfully exported\n", bundleToString(bundle))
+				if len(hooks) != 0 {
+					for _, h := range hooks {
+						go execHook(h)
+					}
+				}
+			}
+		}
+	}()
+
+	go r.Start(ctx)
+	<-ctx.Done()
 	return nil
 }
 
@@ -98,13 +166,13 @@ func bundlesList(ctx context.Context, service workload.Service) error {
 		fmt.Printf("\nThere are no certificate root bundles available yet. Create one by using command 'spiffectl bundle create'\n")
 	}
 	for _, b := range bundles {
-		fmt.Printf("* %v\n", bundleToString(b))
+		fmt.Printf("* %v\n", bundleToString(&b))
 	}
 	fmt.Printf("\n")
 	return nil
 }
 
-func bundleToString(b workload.TrustedRootBundle) string {
+func bundleToString(b *workload.TrustedRootBundle) string {
 	var cas string
 	if len(b.CertAuthorityIDs) != 0 {
 		cas = fmt.Sprintf(", certificate authorites: %v", strings.Join(b.CertAuthorityIDs, ","))

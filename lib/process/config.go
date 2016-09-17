@@ -103,6 +103,17 @@ func ReadPath(path string) ([]byte, error) {
 	return bytes, nil
 }
 
+func StatDir(path string) (os.FileInfo, error) {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return nil, trace.ConvertSystemError(err)
+	}
+	if !fi.IsDir() {
+		return nil, trace.BadParameter("%v is not a directory", path)
+	}
+	return fi, nil
+}
+
 func ConfigFromFile(fileName string) (*Config, error) {
 	if fileName == "" {
 		fileName = filepath.Join(constants.DefaultStateDir, constants.DefaultConfigFileName)

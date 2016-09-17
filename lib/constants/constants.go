@@ -55,6 +55,9 @@ const (
 	// DefalutPrivateFileMask is for private non executable files
 	DefaultPrivateFileMask os.FileMode = 0600
 
+	// DefalutPrivateDirMask is for private directories
+	DefaultPrivateDirMask os.FileMode = 0700
+
 	// AdminKeyFilename is a filename of admin's certificate private key
 	AdminKeyFilename = "admin.pem"
 	// AdminCertFilename is a filename of admin's certificate

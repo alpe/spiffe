@@ -106,8 +106,8 @@ type RenewerConfig struct {
 	Clock clockwork.Clock
 	// Template specifies certificate parameters
 	Template CertificateRequestTemplate
-	// Signer is a local or remote signing signer
-	Signer Signer
+	// Service is a workload service
+	Service Service
 	// ReadKey is used to read private key from storage
 	ReadKey FileReader
 	// ReadCert is used to read certificate from storage
@@ -153,10 +153,31 @@ func (r *Renewer) Start(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	eventsC := make(chan *Event, 1)
+	subscribeContext, cancelWatch := context.WithCancel(ctx)
+	err = r.Service.Subscribe(subscribeContext, eventsC)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer cancelWatch()
+
 	ticker := time.NewTicker(r.tickPeriod())
 	defer ticker.Stop()
 	for {
 		select {
+		case event := <-eventsC:
+			if event.Type == EventTypeCertAuthority && event.ID == r.Template.CertAuthorityID {
+				if event.Action == EventActionDeleted {
+					r.Debugf("CertAuthority %v signing this certificate vanished, stop signing process", r.Template.CertAuthorityID)
+					return nil
+				} else if event.Action == EventActionUpdated {
+					r.Debugf("CertAuthority %v signing this certificate updated, renew the certificate")
+					err := r.Renew(ctx)
+					if err != nil {
+						return trace.Wrap(err)
+					}
+				}
+			}
 		case <-ticker.C:
 			err := r.Renew(ctx)
 			if err != nil {
@@ -211,7 +232,7 @@ func (r *Renewer) Renew(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	re, err := r.Signer.ProcessCertificateRequest(ctx, *csr)
+	re, err := r.Service.ProcessCertificateRequest(ctx, *csr)
 	if err != nil {
 		return trace.Wrap(err)
 	}

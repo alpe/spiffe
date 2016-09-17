@@ -33,10 +33,10 @@ func run() error {
 		app = kingpin.New("spiffectl", "CLI utility to talk to SPIFFE service")
 
 		debug      = app.Flag("debug", "turn on debug logging").Bool()
-		targetAddr = app.Flag("server", "Hostport of the target spiffe server").Default("localhost:3443").String()
-		certPath   = app.Flag("cert-file", "Path to client certificate file").Default(filepath.Join(constants.DefaultStateDir, constants.AdminCertFilename)).ExistingFile()
-		keyPath    = app.Flag("key-file", "Path to client private key file").Default(filepath.Join(constants.DefaultStateDir, constants.AdminKeyFilename)).ExistingFile()
-		caPath     = app.Flag("ca-file", "Path to client certificate authority cert file").Default(filepath.Join(constants.DefaultStateDir, constants.AdminCertCAFilename)).ExistingFile()
+		targetAddr = app.Flag("server", "hostport of the target spiffe server").Default("localhost:3443").String()
+		certPath   = app.Flag("cert-file", "path to client certificate file").Default(filepath.Join(constants.DefaultStateDir, constants.AdminCertFilename)).ExistingFile()
+		keyPath    = app.Flag("key-file", "path to client private key file").Default(filepath.Join(constants.DefaultStateDir, constants.AdminKeyFilename)).ExistingFile()
+		caPath     = app.Flag("ca-file", "path to client certificate authority cert file").Default(filepath.Join(constants.DefaultStateDir, constants.AdminCertCAFilename)).ExistingFile()
 
 		cbundles              = app.Command("bundle", "operations on trusted root certificate bundles")
 		cbundlesList          = cbundles.Command("ls", "list trusted root certificate bundles")
@@ -45,6 +45,9 @@ func run() error {
 		cbundlesCreateID      = cbundlesCreate.Flag("id", "unique bundle id").Required().String()
 		cbundlesCreateDirs    = cbundlesCreate.Flag("directory", "import certificates from directory").Strings()
 		cbundlesCreateCAIDs   = cbundlesCreate.Flag("caid", "use existing certificate authority id").Strings()
+
+		ccertAuthorities     = app.Command("ca", "operations on certificate authorities")
+		ccertAuthoritiesList = ccertAuthorities.Command("ls", "list certificate authorities")
 	)
 
 	cmd, err := app.Parse(os.Args[1:])
@@ -98,6 +101,8 @@ func run() error {
 		return bundlesList(ctx, client)
 	case cbundlesCreate.FullCommand():
 		return bundleCreate(ctx, client, *cbundlesCreateReplace, *cbundlesCreateID, *cbundlesCreateDirs, *cbundlesCreateCAIDs)
+	case ccertAuthoritiesList.FullCommand():
+		return certAuthoritiesList(ctx, client)
 	}
 
 	return trace.BadParameter("unsupported command: %v", cmd)

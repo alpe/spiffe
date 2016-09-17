@@ -170,7 +170,7 @@ func (p *Process) startServer(ctx context.Context) error {
 		WriteCert: func(data []byte) error {
 			return mem.WritePath("cert", data)
 		},
-		Signer:  p.localService,
+		Service: p.localService,
 		EventsC: eventsC,
 	})
 	if err != nil {
@@ -235,7 +235,7 @@ func (p *Process) initLocalAdminCreds(ctx context.Context) error {
 		WriteCert: func(data []byte) error {
 			return WritePath(certPath, data, constants.DefaultPrivateFileMask)
 		},
-		Signer: p.localService,
+		Service: p.localService,
 	})
 	if err != nil {
 		return trace.Wrap(err)

@@ -3,9 +3,11 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/spiffe/spiffe/lib/constants"
 	"github.com/spiffe/spiffe/lib/process"
 	"github.com/spiffe/spiffe/lib/workload"
 
@@ -73,6 +75,19 @@ func bundleCreate(ctx context.Context, service workload.Service, replace bool, i
 	return nil
 }
 
+func bundleExport(ctx context.Context, service workload.Service, targetDirectory string, watchUpdates bool) error {
+	if _, err := process.StatDir(targetDirectory); err != nil {
+		if !trace.IsNotFound(err) {
+			return trace.Wrap(err)
+		}
+		err = os.Mkdir(targetDirectory, constants.DefaultPrivateDirMask)
+		if err != nil {
+			return trace.ConvertSystemError(err)
+		}
+	}
+	return nil
+}
+
 func bundlesList(ctx context.Context, service workload.Service) error {
 	bundles, err := service.GetTrustedRootBundles(ctx)
 	if err != nil {
@@ -85,17 +100,18 @@ func bundlesList(ctx context.Context, service workload.Service) error {
 	for _, b := range bundles {
 		fmt.Printf("* %v\n", bundleToString(b))
 	}
+	fmt.Printf("\n")
 	return nil
 }
 
 func bundleToString(b workload.TrustedRootBundle) string {
 	var cas string
 	if len(b.CertAuthorityIDs) != 0 {
-		cas = fmt.Sprintf(" certificate authorites: %v", strings.Join(b.CertAuthorityIDs, ","))
+		cas = fmt.Sprintf(", certificate authorites: %v", strings.Join(b.CertAuthorityIDs, ","))
 	}
 	var certs string
 	if len(b.Certs) != 0 {
-		certs = fmt.Sprintf(" certificates: %v", len(b.Certs))
+		certs = fmt.Sprintf(", external certificates: %v", len(b.Certs))
 	}
-	return fmt.Sprintf("%v%v%v", b.ID, cas, certs)
+	return fmt.Sprintf("id: '%v'%v%v", b.ID, cas, certs)
 }

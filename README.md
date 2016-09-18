@@ -1,8 +1,8 @@
+## Status
+
+**WARNING** This is draft implementation. It will likely change based on the feedback! Use at own risk!!!
+
 ## Description
-
-### Status
-
-**WARNING:** This is draft implementation. It will likely change based on the feedback! Use at own risk!!!
 
 SPIFFE is a draft implementation of SPIFFE.io
 

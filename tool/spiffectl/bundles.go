@@ -16,6 +16,15 @@ import (
 	"golang.org/x/net/context"
 )
 
+func bundleDelete(ctx context.Context, service workload.Service, id string) error {
+	err := service.DeleteTrustedRootBundle(ctx, id)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	fmt.Printf("bundle %v successfully deleted\n", id)
+	return nil
+}
+
 func bundleCreate(ctx context.Context, service workload.Service, id string, directories []string, certAuthorityIDs []string, replace bool) error {
 	if len(directories) == 0 && len(certAuthorityIDs) == 0 {
 		return trace.BadParameter("please provide directory or cert authority ids")

@@ -175,20 +175,18 @@ func WriteBundleToDirectory(ctx context.Context, targetDir string, certAuthoriti
 		}
 		certs = append(certs, *cert)
 	}
-
 	// write certs from cert authorities first
 	for _, cert := range certs {
-		err := toolbox.WritePath(filepath.Join(targetDir, "certauthority", cert.ID)+".pem", cert.Cert, constants.DefaultSharedFileMask)
+		err := toolbox.WritePath(filepath.Join(targetDir, "certauthority"+"."+cert.ID+".pem"), cert.Cert, constants.DefaultSharedFileMask)
 		if err != nil {
 			return trace.Wrap(err)
 		}
 	}
-
 	// write bundle external certs
 	for _, cert := range bundle.Certs {
 		filename := cert.Filename
 		if filename == "" {
-			filename = filepath.Join("cert", cert.ID) + ".pem"
+			filename = "cert" + "." + cert.ID + ".pem"
 		}
 		err := toolbox.WritePath(filepath.Join(targetDir, filename), cert.Cert, constants.DefaultSharedFileMask)
 		if err != nil {

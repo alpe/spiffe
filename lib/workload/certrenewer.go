@@ -320,7 +320,6 @@ func (r *CertRenewer) Renew(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
 	if err := r.WriteCert(re.Cert); err != nil {
 		return trace.Wrap(err)
 	}

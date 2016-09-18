@@ -1,0 +1,242 @@
+syntax = "proto3";
+package api;
+
+import "github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis/google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+
+message CertificateRequest {
+    string CertAuthorityID = 1;
+    int64 TTL = 2;
+    bytes CSR = 3;
+}
+
+message SearchResponse {
+  message Result {
+    string url = 1;
+    string title = 2;
+    repeated string snippets = 3;
+  }
+  repeated Result results = 1;
+}
+
+message CertificateResponse {
+    bytes Cert = 1;
+}
+
+message CertAuthority {
+	string ID = 1;
+	bytes Cert = 2;
+	bytes PrivateKey = 3;
+}
+
+message CertAuthorities {
+    repeated CertAuthority CertAuthorities = 1;
+}
+
+message TrustedRootBundle {
+    message TrustedRootCert {
+	    string ID = 1;
+        string Filename = 2;
+        bytes Cert = 3;
+    }
+    string ID = 1;
+    repeated TrustedRootCert Certs = 2;
+    repeated string CertAuthorityIDs = 3;
+}
+
+message TrustedRootBundles {
+    repeated TrustedRootBundle Bundles = 1;
+}
+
+message Workload {
+    message ScopedID {
+        string ID = 1;
+        int64 MaxTTL = 2;
+        bool IsDefault = 3;
+    }
+
+	string ID = 1;
+	repeated ScopedID Identities = 2;
+	repeated string TrustedBundleIDs = 3;
+}
+
+message Workloads {
+    repeated Workload Workloads = 1;
+}
+
+message Event {
+	string ID  = 1;
+	string Type = 2;
+	string Action = 3;    
+	Workload Workload = 4;
+	TrustedRootBundle Bundle = 5;
+	CertAuthority CertAuthority = 6;
+}
+
+message Permission {
+	string ID = 1;
+	string Action = 2;
+	string Collection = 3;
+	string CollectionID = 4;
+}
+
+message SignPermission {
+	string ID  = 1;
+	string CertAuthorityID = 2;
+	string Org = 3;
+	string SignID = 4;
+	int64 MaxTTL = 5;
+}
+
+message ID {
+    string ID = 1;
+}
+
+service Service {
+    rpc CreateCertAuthority(CertAuthority) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+			post: "/v1/workload/authorities"
+			body: "*"
+		};
+    }
+    
+    rpc UpsertCertAuthority(CertAuthority) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+			put: "/v1/workload/authorities"
+			body: "*"
+		};
+    }
+    
+    rpc GetCertAuthority(ID) returns (CertAuthority) {
+        option (google.api.http) = {
+			get: "/v1/workload/authorities/{ID}"
+		};
+    }
+
+    rpc GetCertAuthorityCert(ID) returns (CertAuthority) {
+        option (google.api.http) = {
+			get: "/v1/workload/authorities/{ID}/cert"
+		};
+    }    
+    
+	rpc DeleteCertAuthority(ID) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+			delete: "/v1/workload/authorities/{ID}"
+		};
+    }
+
+    rpc GetCertAuthoritiesCerts(google.protobuf.Empty) returns (CertAuthorities) {
+        option (google.api.http) = {
+			get: "/v1/workload/authoritiescerts"
+		};
+    }   
+
+    rpc ProcessCertificateRequest(CertificateRequest) returns (CertificateResponse) {
+        option (google.api.http) = {
+            post: "/v1/workload/sign"
+            body: "*"
+        };
+    }
+
+	rpc UpsertWorkload(Workload) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+			put: "/v1/workload/workloads"
+			body: "*"
+		};
+    }
+
+    rpc GetWorkload(ID) returns (Workload) {
+        option (google.api.http) = {
+			get: "/v1/workload/workloads/{ID}"
+		};
+    }
+
+    rpc GetWorkloads(google.protobuf.Empty) returns (Workloads) {
+        option (google.api.http) = {
+			get: "/v1/workload/workloads"
+		};
+    }
+            
+	rpc DeleteWorkload(ID) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+			delete: "/v1/workload/workloads/{ID}"
+		};
+    }
+
+	rpc Subscribe(google.protobuf.Empty) returns (stream Event) {
+        option (google.api.http) = {
+			get: "/v1/workload/events"
+		};
+    }
+
+
+	rpc CreateTrustedRootBundle(TrustedRootBundle) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+			post: "/v1/workload/bundles"
+			body: "*"
+		};
+    }
+
+    rpc UpsertTrustedRootBundle(TrustedRootBundle) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+			put: "/v1/workload/bundles"
+			body: "*"
+		};
+    }
+
+	rpc GetTrustedRootBundle(ID) returns (TrustedRootBundle) {
+        option (google.api.http) = {
+			get: "/v1/workload/bundles/{ID}"
+		};
+    }
+
+	rpc GetTrustedRootBundles(google.protobuf.Empty) returns (TrustedRootBundles) {
+        option (google.api.http) = {
+			get: "/v1/workload/bundles"
+		};
+    }
+
+	rpc DeleteTrustedRootBundle(ID) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+			delete: "/v1/workload/bundles/{ID}"
+		};
+    }
+
+	rpc GetPermission(Permission) returns (Permission) {
+        option (google.api.http) = {
+			get: "/v1/workload/permissions/{ID}/{Action}/{Collection}"
+		};
+    }
+
+    rpc UpsertPermission(Permission) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+			put: "/v1/workload/permissions"
+			body: "*"
+		};
+    }
+	
+	rpc DeletePermission(Permission) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+			delete: "/v1/workload/permissions/{ID}/{Action}/{Collection}"
+		};
+    }
+
+    rpc GetSignPermission(SignPermission) returns (SignPermission) {
+        option (google.api.http) = {
+			get: "/v1/workload/signpermissions/{ID}/{CertAuthorityID}/{Org}"
+		};
+    }
+
+	rpc UpsertSignPermission(SignPermission) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+			put: "/v1/workload/signpermissions"
+			body: "*"
+		};
+    }
+	
+	rpc DeleteSignPermission(SignPermission) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+			delete: "/v1/workload/signpermissions/{ID}/{CertAuthorityID}/{Org}"
+		};
+    }
+}

@@ -1,0 +1,14 @@
+debug: true
+statedir: /var/lib/spiffe
+profilelistenaddr: localhost:6060
+advertisehostname: localhost
+rpclistenaddr: localhost:3443
+serverid: urn:spiffe:localhost:server1
+backend:
+  type: etcdv2
+  etcdv2:
+    nodes: ['https://localhost:4001']
+    key: /spiffe/local
+    tlskeyfile: ./fixtures/certs/proxy1-key.pem
+    tlscertfile: ./fixtures/certs/proxy1.pem
+    tlscafile: ./fixtures/certs/ca.pem

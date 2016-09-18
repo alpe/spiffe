@@ -4,7 +4,7 @@
 
 ## Description
 
-SPIFFE is a draft implementation of SPIFFE.io
+SPIFFE is a draft implementation of [SPIFFE.io](https://spiffe.io)
 
 It includes:
 

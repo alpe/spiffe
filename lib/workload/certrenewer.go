@@ -24,6 +24,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/spiffe/spiffe/lib/constants"
 	"github.com/spiffe/spiffe/lib/identity"
 
 	log "github.com/Sirupsen/logrus"
@@ -208,16 +209,10 @@ func (r *CertRenewer) renewTrigger() time.Duration {
 	return r.Template.TTL / 2
 }
 
-// Start starts renewer procedure, it is a blocking call,
-// to cancel, simply use context cancelling ability
-func (r *CertRenewer) Start(ctx context.Context) error {
-	err := r.Renew(ctx)
-	if err != nil {
-		return trace.Wrap(err)
-	}
+func (r *CertRenewer) watch(ctx context.Context) error {
 	eventsC := make(chan *Event, 1)
 	subscribeContext, cancelWatch := context.WithCancel(ctx)
-	err = r.Service.Subscribe(subscribeContext, eventsC)
+	err := r.Service.Subscribe(subscribeContext, eventsC)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -228,6 +223,9 @@ func (r *CertRenewer) Start(ctx context.Context) error {
 	for {
 		select {
 		case event := <-eventsC:
+			if event == nil {
+				return trace.ConnectionProblem(nil, "server disconnected")
+			}
 			if event.Type == EventTypeCertAuthority && event.ID == r.Template.CertAuthorityID {
 				if event.Action == EventActionDeleted {
 					r.Debugf("CertAuthority %v signing this certificate vanished, stop signing process", r.Template.CertAuthorityID)
@@ -248,6 +246,30 @@ func (r *CertRenewer) Start(ctx context.Context) error {
 		case <-ctx.Done():
 			r.Debugf("context is closing, returning")
 			return nil
+		}
+	}
+}
+
+// Start starts renewer procedure, it is a blocking call,
+// to cancel, simply use context cancelling ability
+func (r *CertRenewer) Start(ctx context.Context) error {
+	err := r.Renew(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	for {
+		err = r.watch(ctx)
+		if err != nil {
+			if !trace.IsConnectionProblem(err) {
+				return trace.Wrap(err)
+			}
+			r.Debugf("connection problem while connecting, restart in %v", constants.DefaultReconnectPeriod)
+			select {
+			case <-time.After(constants.DefaultReconnectPeriod):
+			case <-ctx.Done():
+				r.Debugf("context is closing")
+				return nil
+			}
 		}
 	}
 }

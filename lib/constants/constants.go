@@ -73,4 +73,7 @@ const (
 
 	// DefaultDialTimeout sets default timeout for dialing some RPC endpoint
 	DefaultDialTimeout = 30 * time.Second
+
+	// DefaultReconnectPeriod is a default period for various reconnect attempts
+	DefaultReconnectPeriod = 5 * time.Second
 )

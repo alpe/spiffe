@@ -18,6 +18,7 @@ package workload
 
 import (
 	"path/filepath"
+	"time"
 
 	"github.com/spiffe/spiffe/lib/constants"
 	"github.com/spiffe/spiffe/lib/toolbox"
@@ -101,20 +102,10 @@ func (r *BundleRenewer) Write(ctx context.Context, bundle *TrustedRootBundle) er
 	return nil
 }
 
-// Start starts renewer procedure, it is a blocking call,
-// to cancel, simply use context cancelling ability
-func (r *BundleRenewer) Start(ctx context.Context) error {
-	bundle, err := r.Service.GetTrustedRootBundle(ctx, r.TrustedRootBundleID)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	if err := r.Write(ctx, bundle); err != nil {
-		return trace.Wrap(err)
-	}
-
+func (r *BundleRenewer) watch(ctx context.Context) error {
 	eventsC := make(chan *Event, 1)
 	subscribeContext, cancelWatch := context.WithCancel(ctx)
-	err = r.Service.Subscribe(subscribeContext, eventsC)
+	err := r.Service.Subscribe(subscribeContext, eventsC)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -123,6 +114,9 @@ func (r *BundleRenewer) Start(ctx context.Context) error {
 	for {
 		select {
 		case event := <-eventsC:
+			if event == nil {
+				return trace.ConnectionProblem(nil, "agent disconnected")
+			}
 			if event.Type == EventTypeTrustedRootBundle && event.ID == r.TrustedRootBundleID {
 				if event.Action == EventActionDeleted {
 					r.Debugf("Bundle %v vanished, stop updates", r.TrustedRootBundleID)
@@ -137,6 +131,33 @@ func (r *BundleRenewer) Start(ctx context.Context) error {
 		case <-ctx.Done():
 			r.Debugf("context is closing, returning")
 			return nil
+		}
+	}
+}
+
+// Start starts renewer procedure, it is a blocking call,
+// to cancel, simply use context cancelling ability
+func (r *BundleRenewer) Start(ctx context.Context) error {
+	bundle, err := r.Service.GetTrustedRootBundle(ctx, r.TrustedRootBundleID)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if err := r.Write(ctx, bundle); err != nil {
+		return trace.Wrap(err)
+	}
+	for {
+		err = r.watch(ctx)
+		if err != nil {
+			if !trace.IsConnectionProblem(err) {
+				return trace.Wrap(err)
+			}
+			r.Debugf("connection problem while connecting, restart in %v", constants.DefaultReconnectPeriod)
+			select {
+			case <-time.After(constants.DefaultReconnectPeriod):
+			case <-ctx.Done():
+				r.Debugf("context is closing")
+				return nil
+			}
 		}
 	}
 }

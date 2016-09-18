@@ -213,6 +213,11 @@ type Event struct {
 	CertAuthority *CertAuthority
 }
 
+// String returns user-friendly event description
+func (e *Event) String() string {
+	return fmt.Sprintf("event(id=%v, action=%v, type=%v)", e.ID, e.Action, e.Type)
+}
+
 const (
 	// EventTypeWorkload indicates that this is event about workload
 	EventTypeWorkload = "EventWorkload"

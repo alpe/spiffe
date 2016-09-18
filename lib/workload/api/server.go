@@ -170,12 +170,10 @@ func (s *Server) Subscribe(_ *empty.Empty, stream Service_SubscribeServer) error
 				log.Error(trace.DebugReport(err))
 				return trail.Send(ctx, err)
 			}
-			log.Debugf("sending to client: %v", out)
 			if err := stream.Send(out); err != nil {
 				log.Error(trace.DebugReport(err))
 				return err
 			}
-			log.Debugf("sent to client: %v", out)
 		}
 	}
 }

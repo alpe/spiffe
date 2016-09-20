@@ -4,6 +4,9 @@ GRPC_GATEWAY_TAG ?= v1.1.0
 BUILDBOX_TAG := spifee-buildbox:0.0.1
 PLATFORM := linux-x86_64
 GRPC_DIRS := lib/workload/api
+BUILDDIR ?= .
+IMAGE := spiffe
+TAG := 0.0.1
 
 include build.assets/etcd.mk
 
@@ -12,10 +15,20 @@ include build.assets/etcd.mk
 .PHONY: all
 all: install
 
+# version prints current version
+.PHONY: version
+version:
+	echo $(TAG)
+
 # install installs binary
 .PHONY: install
 install: 
 	go install github.com/spiffe/spiffe/tool/spiffe github.com/spiffe/spiffe/tool/spiffectl
+
+.PHONY: build
+build:
+	go build -o $(BUILDDIR)/spiffe github.com/spiffe/spiffe/tool/spiffe
+	go build -o $(BUILDDIR)/spiffectl github.com/spiffe/spiffe/tool/spiffectl
 
 # run runs local dev server
 .PHONY: run
@@ -49,6 +62,40 @@ buildbox:
           --build-arg GRPC_GATEWAY_TAG=$(GRPC_GATEWAY_TAG) \
           --build-arg PLATFORM=$(PLATFORM) \
           -t $(BUILDBOX_TAG) .
+
+
+# container builds container with spiffe
+.PHONY: container
+container:
+	$(eval TMPDIR := $(shell mktemp -d))
+	if [ ! -d "$(TMPDIR)" ] ; then \
+		echo "failed to generate temp dir" && exit 255 ;\
+	fi
+	mkdir -p $(TMPDIR)/build/opt/spiffe
+	docker run -v $(shell pwd):/go/src/github.com/spiffe/spiffe -v $(TMPDIR)/build/opt/spiffe:/out $(BUILDBOX_TAG) make -C /go/src/github.com/spiffe/spiffe build BUILDDIR=/out
+	cp build.assets/k8s/docker/spiffe.dockerfile $(TMPDIR)
+	cd $(TMPDIR) && docker build -t $(IMAGE):$(TAG) --file spiffe.dockerfile .
+	rm -rf $(TMPDIR)
+
+.PHONY: dev-containers
+dev-containers:
+	docker tag $(IMAGE):$(TAG) apiserver:5000/$(IMAGE):latest
+	docker tag $(SPIFFE_TEST_ETCD_IMAGE) apiserver:5000/$(SPIFFE_TEST_ETCD_IMAGE)
+	docker push apiserver:5000/$(IMAGE):latest
+	docker push apiserver:5000/$(SPIFFE_TEST_ETCD_IMAGE)
+
+
+.PHONY: dev-create
+dev-create:
+	kubectl create -f build.assets/k8s/resources/etcd-secrets.yaml
+	kubectl create -f build.assets/k8s/resources/spiffe.yaml
+
+.PHONY: dev-destroy
+dev-destroy:
+	- kubectl --namespace=kube-system delete deployments/spiffe
+	- kubectl --namespace=kube-system delete configmaps/etcd-secrets
+	- kubectl --namespace=kube-system delete configmaps/spiffe
+	- kubectl --namespace=kube-system delete services/spiffe
 
 # proto generates GRPC defs from service definitions
 .PHONY: grpc

@@ -1,0 +1,104 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    app: spiffe
+  name: spiffe
+  namespace: kube-system
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: spiffe
+    spec:
+      hostNetwork: false
+      containers:
+      - image: apiserver:5000/quay.io/coreos/etcd:v2.3.7
+        name: etcd
+        imagePullPolicy: Always
+        command:
+          - /etcd
+          - --name=etcd0
+          - --advertise-client-urls=https://localhost:2379,https://localhost:4001
+          - --listen-client-urls=https://0.0.0.0:2379,https://0.0.0.0:4001
+          - --initial-advertise-peer-urls=https://localhost:2380
+          - --listen-peer-urls=https://0.0.0.0:2380
+          - --initial-cluster-token=etcd-cluster-1
+          - --initial-cluster=etcd0=https://localhost:2380
+          - --initial-cluster-state=new
+          - --cert-file=/var/lib/etcd-secrets/etcd1.pem
+          - --key-file=/var/lib/etcd-secrets/etcd1-key.pem
+          - --peer-cert-file=/var/lib/etcd-secrets/etcd1.pem
+          - --peer-key-file=/var/lib/etcd-secrets/etcd1-key.pem
+          - --peer-client-cert-auth
+          - --peer-trusted-ca-file=/var/lib/etcd-secrets/ca.pem
+          - -client-cert-auth
+          - --trusted-ca-file=/var/lib/etcd-secrets/ca.pem
+        volumeMounts:
+          - name: etcd-secrets
+            mountPath: /var/lib/etcd-secrets          
+      - image: apiserver:5000/spiffe:latest
+        name: spiffe
+        imagePullPolicy: Always
+        command: ["/usr/bin/dumb-init", "/opt/spiffe/spiffe", "--config", "/var/lib/spiffe/config/k8s.yaml"]
+        env:
+          - name: PATH
+            value: "/opt/spiffe:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+          - name: POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+        ports:
+          - name: grpc
+            containerPort: 3443
+        volumeMounts:
+          - name: config
+            mountPath: /var/lib/spiffe/config
+          - name: etcd-secrets
+            mountPath: /var/lib/etcd-secrets
+      volumes:
+        - name: config
+          configMap:
+            name: spiffe
+        - name: etcd-secrets
+          configMap:
+            name: etcd-secrets
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spiffe
+  namespace: kube-system
+  labels:
+    app: spiffe  
+data:
+  k8s.yaml: |
+    debug: true
+    statedir: /var/lib/spiffe
+    profilelistenaddr: localhost:6060
+    advertisehostname: spiffe.kube-system.svc.cluster.local
+    rpclistenaddr: 0.0.0.0:3443
+    serverid: urn:spiffe:spiffe.kube-system.svc.cluster.local:server1
+    backend:
+      type: etcdv2
+      etcdv2:
+        nodes: ['https://localhost:4001']
+        key: /spiffe/prod
+        tlskeyfile: /var/lib/etcd-secrets/proxy1-key.pem
+        tlscertfile: /var/lib/etcd-secrets/proxy1.pem
+        tlscafile: /var/lib/etcd-secrets/ca.pem
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: spiffe
+  namespace: kube-system
+  labels:
+    app: spiffe
+spec:
+  ports:
+  - name: grpc
+    port: 3443
+  selector:
+    app: spiffe

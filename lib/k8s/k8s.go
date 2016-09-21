@@ -1,3 +1,32 @@
+/*
+Copyright 2016 SPIFFE Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+// package k8s implemenets k8s-native plugin for client and server.
+// K8s integration service watches for K8s namespaces, if new namespace
+// is created, the service does the following:
+//
+// * Sets up TLS Certificate Authority for this namespace
+// * Adds special identity that is authorized to sign certificates for this
+// certificate authority (*.kube-system.svc.cluster.local) matching subdomain
+// assigned for this namespace
+// * Creates (and mantains) secret in this namespace that contains certificate
+//   and private key authenticated as SPIFFE identity assigned to the cluster
+//   and certificate authority certificate to be trusted
+//
+// SPIFFE node can use GetKeyPair
 package k8s
 
 import (
@@ -22,10 +51,12 @@ import (
 	"k8s.io/client-go/1.4/rest"
 )
 
+// ServiceConfig is a config for K8s integration service
 type ServiceConfig struct {
 	Service workload.Service
 }
 
+// NewService returns new instance of K8s integration service
 func NewService(cfg ServiceConfig) (*Service, error) {
 	client, err := GetClient()
 	if err != nil {
@@ -39,12 +70,8 @@ func NewService(cfg ServiceConfig) (*Service, error) {
 	}, nil
 }
 
-type renewerBundle struct {
-	renewer    *workload.CertRenewer
-	cancelFunc context.CancelFunc
-	secretRW   *secretRW
-}
-
+// Service is K8s integration service. It is started in K8s mode
+// and watches K8s namespaces setting up proper TLS infrastructure for them
 type Service struct {
 	sync.Mutex
 	client *kubernetes.Clientset
@@ -53,6 +80,7 @@ type Service struct {
 	renewers map[string]*renewerBundle
 }
 
+// GetClient returns new K8s in-cluster client
 func GetClient() (*kubernetes.Clientset, error) {
 	// creates the in-cluster config
 	config, err := rest.InClusterConfig()
@@ -67,6 +95,7 @@ func GetClient() (*kubernetes.Clientset, error) {
 	return clientset, nil
 }
 
+// ReadKeyPairFromSecret reads key pair directly from K8s secret
 func ReadKeyPairFromSecret(namespace string, name string) (*workload.KeyPair, error) {
 	client, err := GetClient()
 	if err != nil {
@@ -76,6 +105,7 @@ func ReadKeyPairFromSecret(namespace string, name string) (*workload.KeyPair, er
 	return secretRW.ReadKeyPair()
 }
 
+// Serve is a blocking call that launches the service
 func (s *Service) Serve(ctx context.Context) {
 	for {
 		err := s.watchNamespaces(ctx)
@@ -333,6 +363,14 @@ func (s *Service) newRenewer(ctx context.Context, namespace kubeNamespace) (*ren
 	return &renewerBundle{renewer: renewer, cancelFunc: cancelFunc, secretRW: secretRW}, nil
 }
 
+type renewerBundle struct {
+	renewer    *workload.CertRenewer
+	cancelFunc context.CancelFunc
+	secretRW   *secretRW
+}
+
+// kubeNamespace is a wrapper around namespace that helps to name things
+// related to this namespace
 type kubeNamespace string
 
 func (n kubeNamespace) Bundle() workload.TrustedRootBundle {

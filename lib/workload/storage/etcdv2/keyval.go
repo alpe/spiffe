@@ -496,31 +496,15 @@ func (b *Backend) UpsertSignPermission(ctx context.Context, s workload.SignPermi
 	if err := s.Check(); err != nil {
 		return trace.Wrap(err)
 	}
+	key, err := b.signKey(s)
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	val, err := marshal(s)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	if s.Org == allCollections || s.CertAuthorityID == allCollections {
-		return trace.BadParameter("reserved value %v", allCollections)
-	}
-	var org, certAuthorityID, signID string
-	if s.SignID != nil {
-		signID = s.SignID.String()
-	} else {
-		signID = allCollections
-	}
-	if s.Org == "" {
-		org = allCollections
-	} else {
-		org = s.Org
-	}
-	if s.CertAuthorityID == "" {
-		certAuthorityID = allCollections
-	} else {
-		certAuthorityID = s.CertAuthorityID
-	}
-	_, err = b.keys.Set(ctx, b.key(
-		signPermissionsP, s.ID.String(), certAuthorityID, org, signID), val, nil)
+	_, err = b.keys.Set(ctx, key, val, nil)
 	if err = convertErr(err); err != nil {
 		return trace.Wrap(err)
 	}

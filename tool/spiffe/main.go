@@ -53,7 +53,6 @@ func run() error {
 			log.Infof("signal: %v", sig)
 			cancel()
 		}
-
 	}()
 
 	return p.Start(ctx)

@@ -32,11 +32,16 @@ import (
 type Config struct {
 	Debug             bool
 	StateDir          string
+	K8s               K8s
 	ProfileListenAddr string
 	RPCListenAddr     string
 	AdvertiseHostname string
 	Backend           BackendConfig
 	ServerID          string
+}
+
+type K8s struct {
+	Enabled bool
 }
 
 type BackendConfig struct {

@@ -104,9 +104,6 @@ func (b *TrustedRootBundle) Check() error {
 	if b.ID == "" {
 		return trace.BadParameter("missing parameter ID")
 	}
-	if len(b.Certs) == 0 {
-		return trace.BadParameter("missing parameter Certs")
-	}
 	for _, c := range b.Certs {
 		if err := c.Check(); err != nil {
 			return trace.Wrap(err)
@@ -346,7 +343,7 @@ func (p *Permission) Check() error {
 		return trace.Wrap(err)
 	}
 	switch p.Action {
-	case ActionRead, ActionUpsert, ActionCreate, ActionDelete:
+	case ActionRead, ActionUpsert, ActionCreate, ActionDelete, ActionReadPublic:
 	case "":
 		return trace.BadParameter("missing parameter Action")
 	default:
@@ -393,6 +390,7 @@ type SignPermission struct {
 	// CertAuthorityID if present allows signing using particular certificate authority ID
 	CertAuthorityID string
 	// Org if present, limits generating CSRs to get certificates for paricular org name
+	// TODO(klizhentas) rename this to CommonName
 	Org string
 	// SignIDs if present, limits using signing for particular SPIFFE ID
 	SignID *identity.ID
@@ -403,7 +401,7 @@ type SignPermission struct {
 // String returns human-readable permission
 func (s SignPermission) String() string {
 	id := fmt.Sprintf("org %v ", s.Org)
-	if s.SignID == nil {
+	if s.SignID != nil {
 		id += fmt.Sprintf("%v SPIFFE id %v ", id, s.SignID)
 	}
 	return fmt.Sprintf("%v has no permission to sign %v by %v for %v", s.ID, id, s.CertAuthorityID, s.MaxTTL)

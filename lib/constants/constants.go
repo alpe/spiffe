@@ -52,6 +52,9 @@ const (
 	// DefaultCATTL is a default lifetime of a CA certificate
 	DefaultCATTL = time.Hour * 24 * 365 * 10
 
+	// DefaultMaxCertTTL is a default maximum TTL of issued certificate (1 year)
+	DefaultMaxCertTTL = time.Hour * 24 * 365
+
 	// DefaultLocalCertTTL is a default lifetime of a local certificate
 	DefaultLocalCertTTL = 10 * time.Hour
 

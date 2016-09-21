@@ -76,7 +76,7 @@ func (a *ACL) ProcessCertificateRequest(ctx context.Context, req CertificateRequ
 	// first check if this user has a "blank" sign all permission (admin)
 	permission, err := a.Auth.GetSignPermission(ctx, SignPermission{})
 	if err != nil {
-		if !trace.IsNotFound(err) {
+		if !trace.IsAccessDenied(err) {
 			return nil, trace.Wrap(err)
 		}
 		// check for specific sign permission

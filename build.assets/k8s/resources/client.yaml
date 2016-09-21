@@ -1,0 +1,71 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    app: nginx2
+  name: nginx2
+  namespace: kube-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx2
+  template:
+    metadata:
+      labels:
+        app: nginx2
+    spec:
+      volumes:
+        - name: certs
+          emptyDir: {}
+        - name: trustedroots
+          emptyDir: {}
+      containers:
+      - image: apiserver:5000/spiffe:latest
+        name: spiffe-bundle
+        imagePullPolicy: Always
+        command:
+          - /opt/spiffe/spiffectl
+          - --k8s-secret=spiffe-creds
+          - --k8s-namespace=kube-system
+          - --server=spiffe.kube-system.svc.cluster.local:3443
+          - bundle
+          - export
+          - --watch
+          - --id=kube-system.svc.cluster.local
+          - --dir=/var/lib/spiffe/roots
+          - --exec="/bin/echo updated trusted root bundle"
+          - --debug
+        volumeMounts:
+        - mountPath: /var/lib/spiffe/roots
+          name: trustedroots
+      - image: apiserver:5000/spiffe:latest
+        name: spiffe
+        imagePullPolicy: Always
+        command:
+          - /opt/spiffe/spiffectl
+          - --k8s-secret=spiffe-creds
+          - --k8s-namespace=kube-system
+          - --server=spiffe.kube-system.svc.cluster.local:3443
+          - ca
+          - sign
+          - --renew
+          - --ca=kube-system.svc.cluster.local
+          - --id=urn:spiffe:nginx.svc.cluster.local:nginx
+          - --out-key-file=/var/lib/spiffe/certs/nginx.pem
+          - --out-cert-file=/var/lib/spiffe/certs/nginx.cert
+          - --common-name=*.kube-system.svc.cluster.local
+          - --ttl=10h
+          - --exec="/bin/echo updated certificate - need to put something like send signal proxy or whatnot"
+          - --debug
+        volumeMounts:
+        - mountPath: /var/lib/spiffe/certs
+          name: certs
+      - image: nginx:1.9.1
+        name: nginx
+        command: ["/bin/sleep", "10000"]
+        volumeMounts:
+        - mountPath: /var/lib/spiffe/certs
+          name: certs
+        - mountPath: /var/lib/spiffe/roots
+          name: trustedroots

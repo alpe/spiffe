@@ -23,7 +23,7 @@ func certAuthoritySign(ctx context.Context, service workload.Service, id identit
 			trace.Component: constants.ComponentCLI,
 		}),
 		Template: workload.CertificateRequestTemplate{
-			CertAuthorityID: constants.AdminOrg,
+			CertAuthorityID: certAuthorityID,
 			ID:              id,
 			Subject: pkix.Name{
 				CommonName: commonName,

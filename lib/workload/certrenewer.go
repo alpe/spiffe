@@ -253,6 +253,7 @@ func (r *CertRenewer) Start(ctx context.Context) error {
 		err = r.watch(ctx)
 		if err != nil {
 			if !trace.IsConnectionProblem(err) {
+				r.Error(trace.DebugReport(err))
 				return trace.Wrap(err)
 			}
 			r.Debugf("connection problem while connecting, restart in %v", constants.DefaultReconnectPeriod)
@@ -280,17 +281,30 @@ func (r *CertRenewer) Renew(ctx context.Context) error {
 		}
 	}
 
+	ca, err := r.Service.GetCertAuthorityCert(ctx, r.Template.CertAuthorityID)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	caCert, err := ParseCertificatePEM(ca.Cert)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
 	if len(keyPair.CertPEM) != 0 {
 		cert, err := ParseCertificatePEM(keyPair.CertPEM)
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		diff := cert.NotAfter.Sub(r.Clock.Now())
-		if diff > r.renewTrigger() {
-			r.Debugf("cert is present and expires %v (in %v), still good", cert.NotAfter, diff)
-			return nil
-		} else {
+		if err := cert.CheckSignatureFrom(caCert); err == nil {
+			diff := cert.NotAfter.Sub(r.Clock.Now())
+			if diff > r.renewTrigger() {
+				r.Debugf("cert is present and expires %v (in %v), still good", cert.NotAfter, diff)
+				return nil
+			}
 			r.Debugf("cert is present, but expires %v (in %v)", cert.NotAfter, diff)
+		} else {
+			r.Debugf("cert signature does not verify: %v", err.Error())
 		}
 	}
 
@@ -306,11 +320,7 @@ func (r *CertRenewer) Renew(ctx context.Context) error {
 	}
 	keyPair.CertPEM = re.Cert
 
-	cert, err := r.Service.GetCertAuthorityCert(ctx, r.Template.CertAuthorityID)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	keyPair.CAPEM = cert.Cert
+	keyPair.CAPEM = ca.Cert
 
 	if err := r.WriteKeyPair(*keyPair); err != nil {
 		return trace.Wrap(err)

@@ -86,16 +86,32 @@ dev-containers: containers
 
 
 .PHONY: dev-create
-dev-create:
+dev-create: dev-spiffe-create
+
+.PHONY: dev-spiffe-create
+dev-spiffe-create:
 	kubectl create -f build.assets/k8s/resources/etcd-secrets.yaml
 	kubectl create -f build.assets/k8s/resources/spiffe.yaml
 
-.PHONY: dev-destroy
-dev-destroy:
+.PHONY: dev-nginx-create
+dev-nginx-create:
+	kubectl create -f build.assets/k8s/resources/nginx.yaml
+
+.PHONY: dev-nginx-destroy
+dev-nginx-destroy:
+	- kubectl --namespace=kube-system delete services/nginx
+	- kubectl --namespace=kube-system delete deployments/nginx
+	- kubectl --namespace=kube-system delete configmaps/nginx
+
+.PHONY: dev-spiffe-destroy
+dev-spiffe-destroy:
 	- kubectl --namespace=kube-system delete deployments/spiffe
 	- kubectl --namespace=kube-system delete configmaps/etcd-secrets
 	- kubectl --namespace=kube-system delete configmaps/spiffe
 	- kubectl --namespace=kube-system delete services/spiffe
+
+.PHONY: dev-destroy
+dev-destroy: dev-spiffe-destroy
 
 .PHONY: dev-redeploy
 dev-redeploy: dev-destroy dev-containers dev-create

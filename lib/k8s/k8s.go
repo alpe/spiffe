@@ -93,14 +93,14 @@ func (s *Service) Serve(ctx context.Context) {
 	}
 }
 
-func (s *Service) deleteCertAuthority(ctx context.Context, namespace string) error {
-	return s.Service.DeleteCertAuthority(ctx, IDForNamespace(namespace))
+func (s *Service) deleteCertAuthority(ctx context.Context, namespace kubeNamespace) error {
+	return s.Service.DeleteCertAuthority(ctx, namespace.CertAuthorityID())
 }
 
-func (s *Service) deleteRenewer(ctx context.Context, namespace string) error {
+func (s *Service) deleteRenewer(ctx context.Context, namespace kubeNamespace) error {
 	s.Lock()
 	defer s.Unlock()
-	r, ok := s.renewers[namespace]
+	r, ok := s.renewers[string(namespace)]
 	if !ok {
 		s.Infof("%v renewer not found")
 		return nil
@@ -112,14 +112,14 @@ func (s *Service) deleteRenewer(ctx context.Context, namespace string) error {
 			log.Error(trace.DebugReport(err))
 		}
 	}()
-	delete(s.renewers, namespace)
+	delete(s.renewers, string(namespace))
 	return nil
 }
 
-func (s *Service) startRenewer(ctx context.Context, namespace string) error {
+func (s *Service) startRenewer(ctx context.Context, namespace kubeNamespace) error {
 	s.Lock()
 	defer s.Unlock()
-	if _, ok := s.renewers[namespace]; ok {
+	if _, ok := s.renewers[string(namespace)]; ok {
 		s.Infof("%v renewer already exists", namespace)
 		return nil
 	}
@@ -128,12 +128,21 @@ func (s *Service) startRenewer(ctx context.Context, namespace string) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	s.renewers[namespace] = r
+	s.renewers[string(namespace)] = r
 	return nil
 }
 
-func (s *Service) installCertAuthority(ctx context.Context, namespace string) error {
+func (s *Service) installCertAuthority(ctx context.Context, namespace kubeNamespace) error {
+	s.Debugf("installCertAuthority")
 	err := s.upsertCertAuthority(ctx, namespace)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = s.upsertPermissions(ctx, namespace)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = s.upsertBundle(ctx, namespace)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -141,8 +150,16 @@ func (s *Service) installCertAuthority(ctx context.Context, namespace string) er
 	return trace.Wrap(err)
 }
 
-func (s *Service) uninstallCertAuthority(ctx context.Context, namespace string) error {
+func (s *Service) uninstallCertAuthority(ctx context.Context, namespace kubeNamespace) error {
 	err := s.deleteCertAuthority(ctx, namespace)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = s.deletePermissions(ctx, namespace)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = s.deleteBundle(ctx, namespace)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -150,9 +167,59 @@ func (s *Service) uninstallCertAuthority(ctx context.Context, namespace string) 
 	return trace.Wrap(err)
 }
 
-func (s *Service) upsertCertAuthority(ctx context.Context, namespace string) error {
+func (s *Service) upsertBundle(ctx context.Context, namespace kubeNamespace) error {
+	s.Debugf("upsertBundle")
+	err := s.Service.UpsertTrustedRootBundle(ctx, namespace.Bundle())
+	return trace.Wrap(err)
+}
+
+func (s *Service) deleteBundle(ctx context.Context, namespace kubeNamespace) error {
+	s.Debugf("deleteBundle")
+	err := s.Service.DeleteTrustedRootBundle(ctx, namespace.BundleID())
+	return trace.Wrap(err)
+}
+
+func (s *Service) upsertPermissions(ctx context.Context, namespace kubeNamespace) error {
+	s.Debugf("upsertPermissions")
+	for _, p := range namespace.Permissions() {
+		if err := s.Service.UpsertPermission(ctx, p); err != nil {
+			return trace.Wrap(err)
+		}
+	}
+
+	for _, sp := range namespace.SignPermissions() {
+		err := s.Service.UpsertSignPermission(ctx, sp)
+		s.Debugf("upsertSignPermission %v, err: %v", sp, err)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	return nil
+}
+
+func (s *Service) deletePermissions(ctx context.Context, namespace kubeNamespace) error {
+	for _, p := range namespace.Permissions() {
+		if err := s.Service.DeletePermission(ctx, p); err != nil {
+			if !trace.IsNotFound(err) {
+				return trace.Wrap(err)
+			}
+
+		}
+	}
+
+	for _, sp := range namespace.SignPermissions() {
+		if err := s.Service.DeleteSignPermission(ctx, sp); err != nil {
+			if !trace.IsNotFound(err) {
+				return trace.Wrap(err)
+			}
+		}
+	}
+	return nil
+}
+
+func (s *Service) upsertCertAuthority(ctx context.Context, namespace kubeNamespace) error {
 	s.Infof("upsertCertAuthority(namespace=%v)", namespace)
-	_, err := s.Service.GetCertAuthorityCert(ctx, IDForNamespace(namespace))
+	_, err := s.Service.GetCertAuthorityCert(ctx, namespace.CertAuthorityID())
 	if err == nil {
 		return nil
 	}
@@ -160,14 +227,14 @@ func (s *Service) upsertCertAuthority(ctx context.Context, namespace string) err
 		return trace.Wrap(err)
 	}
 	keyPEM, certPEM, err := identity.GenerateSelfSignedCA(pkix.Name{
-		CommonName:   CommonNameForNamespace(namespace),
-		Organization: []string{"svc.cluster.local"},
+		CommonName:   namespace.CommonName(),
+		Organization: []string{namespace.Org()},
 	}, nil, constants.DefaultCATTL)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	certAuthority := workload.CertAuthority{
-		ID:         IDForNamespace(namespace),
+		ID:         namespace.CertAuthorityID(),
 		PrivateKey: keyPEM,
 		Cert:       certPEM,
 	}
@@ -187,7 +254,7 @@ func (s *Service) watchNamespaces(ctx context.Context) error {
 		return trace.Wrap(err)
 	}
 	for _, namespace := range namespaces.Items {
-		err = s.installCertAuthority(ctx, namespace.Name)
+		err = s.installCertAuthority(ctx, kubeNamespace(namespace.Name))
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -213,12 +280,12 @@ func (s *Service) watchNamespaces(ctx context.Context) error {
 				return trace.Wrap(err)
 			}
 			if event.Type == watch.Added || event.Type == watch.Modified {
-				if err := s.installCertAuthority(ctx, namespace); err != nil {
+				if err := s.installCertAuthority(ctx, kubeNamespace(namespace)); err != nil {
 					return trace.Wrap(err)
 				}
 			}
 			if event.Type == watch.Deleted {
-				if err := s.uninstallCertAuthority(ctx, namespace); err != nil {
+				if err := s.uninstallCertAuthority(ctx, kubeNamespace(namespace)); err != nil {
 					return trace.Wrap(err)
 				}
 			}
@@ -229,21 +296,13 @@ func (s *Service) watchNamespaces(ctx context.Context) error {
 	}
 }
 
-func (s *Service) newRenewer(ctx context.Context, namespace string) (*renewerBundle, error) {
+func (s *Service) newRenewer(ctx context.Context, namespace kubeNamespace) (*renewerBundle, error) {
 	renewerContext, cancelFunc := context.WithCancel(ctx)
-
-	certAuthorityID := IDForNamespace(namespace)
-	secretName := SecretIDForNamespace
-	commonName := CommonNameForNamespace(namespace)
-	spiffeID, err := identity.ParseID(fmt.Sprintf("urn:spiffe:%v", DomainNameForNamespace(namespace)))
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
 
 	secretRW := &secretRW{
 		client:     s.client,
-		secretName: secretName,
-		namespace:  namespace,
+		secretName: namespace.SecretID(),
+		namespace:  string(namespace),
 	}
 
 	renewer, err := workload.NewCertRenewer(workload.CertRenewerConfig{
@@ -251,10 +310,10 @@ func (s *Service) newRenewer(ctx context.Context, namespace string) (*renewerBun
 			trace.Component: constants.ComponentSPIFFE,
 		}),
 		Template: workload.CertificateRequestTemplate{
-			CertAuthorityID: certAuthorityID,
-			ID:              *spiffeID,
+			CertAuthorityID: constants.AdminOrg,
+			ID:              namespace.ID(),
 			Subject: pkix.Name{
-				CommonName: commonName,
+				CommonName: namespace.CommonName(),
 			},
 			TTL: constants.DefaultLocalCertTTL,
 		},
@@ -274,18 +333,63 @@ func (s *Service) newRenewer(ctx context.Context, namespace string) (*renewerBun
 	return &renewerBundle{renewer: renewer, cancelFunc: cancelFunc, secretRW: secretRW}, nil
 }
 
-func CommonNameForNamespace(namespace string) string {
-	return fmt.Sprintf("*.%v.svc.cluster.local", namespace)
+type kubeNamespace string
+
+func (n kubeNamespace) Bundle() workload.TrustedRootBundle {
+	return workload.TrustedRootBundle{
+		ID: n.BundleID(),
+		CertAuthorityIDs: []string{
+			n.CertAuthorityID(),
+		},
+	}
 }
 
-func IDForNamespace(namespace string) string {
-	return fmt.Sprintf("%v.svc.cluster.local", namespace)
+func (n kubeNamespace) SignPermissions() []workload.SignPermission {
+	return []workload.SignPermission{
+		{ID: n.ID(), CertAuthorityID: n.CertAuthorityID(), Org: n.CommonName(), MaxTTL: constants.DefaultMaxCertTTL},
+	}
 }
 
-const SecretIDForNamespace = "spiffe-creds"
+func (n kubeNamespace) Permissions() []workload.Permission {
+	id := n.ID()
+	return []workload.Permission{
+		// authorities
+		{ID: id, Action: workload.ActionReadPublic, Collection: workload.CollectionCertAuthorities},
 
-func DomainNameForNamespace(namespace string) string {
-	return fmt.Sprintf("%v.svc.cluster.local", namespace)
+		// workloads
+		{ID: id, Action: workload.ActionRead, Collection: workload.CollectionWorkloads},
+
+		// root bundles
+		{ID: id, Action: workload.ActionRead, Collection: workload.CollectionTrustedRootBundles},
+	}
+}
+
+func (n kubeNamespace) BundleID() string {
+	return fmt.Sprintf("%v.svc.cluster.local", n)
+}
+
+func (n kubeNamespace) Org() string {
+	return "svc.cluster.local"
+}
+
+func (n kubeNamespace) CommonName() string {
+	return fmt.Sprintf("*.%v.svc.cluster.local", n)
+}
+
+func (n kubeNamespace) ID() identity.ID {
+	return identity.MustParseID(fmt.Sprintf("urn:spiffe:%v", n.DomainName()))
+}
+
+func (n kubeNamespace) CertAuthorityID() string {
+	return fmt.Sprintf("%v.svc.cluster.local", n)
+}
+
+func (n kubeNamespace) DomainName() string {
+	return fmt.Sprintf("%v.svc.cluster.local", n)
+}
+
+func (n kubeNamespace) SecretID() string {
+	return "spiffe-creds"
 }
 
 func convertError(err error) error {

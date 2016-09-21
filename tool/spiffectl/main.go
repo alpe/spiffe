@@ -183,9 +183,6 @@ func (id *spiffeID) String() string {
 
 func getCreds(certPath, keyPath, caPath, k8sNamespace, k8sSecret string) (*workload.KeyPair, error) {
 	if k8sSecret != "" {
-		if k8sNamespace == "" {
-			k8sNamespace = "default"
-		}
 		log.Debugf("pulling creds from secret %v in %v namespace", k8sSecret, k8sNamespace)
 		return k8s.ReadKeyPairFromSecret(k8sNamespace, k8sSecret)
 	}

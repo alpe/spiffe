@@ -26,6 +26,7 @@ import (
 
 	"github.com/spiffe/spiffe/lib/constants"
 	"github.com/spiffe/spiffe/lib/identity"
+	"github.com/spiffe/spiffe/lib/k8s"
 	"github.com/spiffe/spiffe/lib/toolbox"
 	"github.com/spiffe/spiffe/lib/workload"
 	"github.com/spiffe/spiffe/lib/workload/api"
@@ -62,7 +63,7 @@ type Process struct {
 	adminID      identity.ID
 }
 
-func (p *Process) startNewServer(ctx context.Context, listener net.Listener, keyPair *workload.RenewedKeyPair) error {
+func (p *Process) startNewServer(ctx context.Context, listener net.Listener, keyPair *workload.KeyPair) error {
 	ca, err := p.localService.GetCertAuthority(ctx, constants.AdminOrg)
 	if err != nil {
 		return trace.Wrap(err)
@@ -100,7 +101,7 @@ func (p *Process) startNewServer(ctx context.Context, listener net.Listener, key
 	return nil
 }
 
-func (p *Process) restartServer(ctx context.Context, listener net.Listener, keyPair *workload.RenewedKeyPair) (net.Listener, error) {
+func (p *Process) restartServer(ctx context.Context, listener net.Listener, keyPair *workload.KeyPair) (net.Listener, error) {
 	var err error
 	restartFn := func() (net.Listener, error) {
 		// start new server
@@ -140,10 +141,10 @@ func (p *Process) restartServer(ctx context.Context, listener net.Listener, keyP
 	}
 }
 
-func (p *Process) startServer(ctx context.Context) error {
+func (p *Process) listenAndServe(ctx context.Context) error {
 	// keep in memory credentials for server
 	mem := workload.NewMemStorage()
-	eventsC := make(chan *workload.RenewedKeyPair, 1)
+	eventsC := make(chan *workload.KeyPair, 1)
 
 	renewer, err := workload.NewCertRenewer(workload.CertRenewerConfig{
 		Clock: clockwork.NewRealClock(),
@@ -159,17 +160,25 @@ func (p *Process) startServer(ctx context.Context) error {
 			},
 			TTL: constants.DefaultLocalCertTTL,
 		},
-		ReadKey: func() ([]byte, error) {
-			return mem.ReadPath("key")
+		ReadKeyPair: func() (*workload.KeyPair, error) {
+			keyPEM, err := mem.ReadPath("key")
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+			certPEM, err := mem.ReadPath("cert")
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+			return &workload.KeyPair{CertPEM: certPEM, KeyPEM: keyPEM}, nil
 		},
-		ReadCert: func() ([]byte, error) {
-			return mem.ReadPath("cert")
-		},
-		WriteKey: func(data []byte) error {
-			return mem.WritePath("key", data)
-		},
-		WriteCert: func(data []byte) error {
-			return mem.WritePath("cert", data)
+		WriteKeyPair: func(keyPair workload.KeyPair) error {
+			if err := mem.WritePath("key", keyPair.KeyPEM); err != nil {
+				return trace.Wrap(err)
+			}
+			if err := mem.WritePath("cert", keyPair.CertPEM); err != nil {
+				return trace.Wrap(err)
+			}
+			return nil
 		},
 		Service: p.localService,
 		EventsC: eventsC,
@@ -224,17 +233,25 @@ func (p *Process) initLocalAdminCreds(ctx context.Context) error {
 			},
 			TTL: constants.DefaultLocalCertTTL,
 		},
-		ReadKey: func() ([]byte, error) {
-			return toolbox.ReadPath(keyPath)
+		ReadKeyPair: func() (*workload.KeyPair, error) {
+			keyPEM, err := toolbox.ReadPath(keyPath)
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+			certPEM, err := toolbox.ReadPath(certPath)
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+			return &workload.KeyPair{CertPEM: certPEM, KeyPEM: keyPEM}, nil
 		},
-		ReadCert: func() ([]byte, error) {
-			return toolbox.ReadPath(certPath)
-		},
-		WriteKey: func(data []byte) error {
-			return toolbox.WritePath(keyPath, data, constants.DefaultPrivateFileMask)
-		},
-		WriteCert: func(data []byte) error {
-			return toolbox.WritePath(certPath, data, constants.DefaultPrivateFileMask)
+		WriteKeyPair: func(keyPair workload.KeyPair) error {
+			if err := toolbox.WritePath(keyPath, keyPair.KeyPEM, constants.DefaultPrivateFileMask); err != nil {
+				return trace.Wrap(err)
+			}
+			if err := toolbox.WritePath(certPath, keyPair.CertPEM, constants.DefaultPrivateFileMask); err != nil {
+				return trace.Wrap(err)
+			}
+			return nil
 		},
 		Service: p.localService,
 	})
@@ -298,9 +315,23 @@ func (p *Process) startService(ctx context.Context) error {
 	if err = p.initLocalAdminCreds(ctx); err != nil {
 		return trace.Wrap(err)
 	}
-	if err := p.startServer(ctx); err != nil {
+	if p.K8s.Enabled {
+		p.Infof("starting K8s helper goroutine")
+		service, err := k8s.NewService(k8s.ServiceConfig{
+			Service: p.localService,
+		})
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		go service.Serve(ctx)
+	} else {
+		p.Infof("not starting K8s helper goroutine")
+	}
+
+	if err := p.listenAndServe(ctx); err != nil {
 		return trace.Wrap(err)
 	}
+
 	return nil
 }
 

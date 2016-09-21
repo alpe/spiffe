@@ -64,9 +64,9 @@ buildbox:
           -t $(BUILDBOX_TAG) .
 
 
-# container builds container with spiffe
-.PHONY: container
-container:
+# containers builds container with spiffe
+.PHONY: containers
+containers:
 	$(eval TMPDIR := $(shell mktemp -d))
 	if [ ! -d "$(TMPDIR)" ] ; then \
 		echo "failed to generate temp dir" && exit 255 ;\
@@ -78,7 +78,7 @@ container:
 	rm -rf $(TMPDIR)
 
 .PHONY: dev-containers
-dev-containers:
+dev-containers: containers
 	docker tag $(IMAGE):$(TAG) apiserver:5000/$(IMAGE):latest
 	docker tag $(SPIFFE_TEST_ETCD_IMAGE) apiserver:5000/$(SPIFFE_TEST_ETCD_IMAGE)
 	docker push apiserver:5000/$(IMAGE):latest
@@ -96,6 +96,9 @@ dev-destroy:
 	- kubectl --namespace=kube-system delete configmaps/etcd-secrets
 	- kubectl --namespace=kube-system delete configmaps/spiffe
 	- kubectl --namespace=kube-system delete services/spiffe
+
+.PHONY: dev-redeploy
+dev-redeploy: dev-destroy dev-containers dev-create
 
 # proto generates GRPC defs from service definitions
 .PHONY: grpc

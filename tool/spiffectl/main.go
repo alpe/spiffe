@@ -10,7 +10,9 @@ import (
 
 	"github.com/spiffe/spiffe/lib/constants"
 	"github.com/spiffe/spiffe/lib/identity"
+	"github.com/spiffe/spiffe/lib/k8s"
 	"github.com/spiffe/spiffe/lib/toolbox"
+	"github.com/spiffe/spiffe/lib/workload"
 	"github.com/spiffe/spiffe/lib/workload/api"
 
 	log "github.com/Sirupsen/logrus"
@@ -34,9 +36,12 @@ func run() error {
 
 		debug      = app.Flag("debug", "turn on debug logging").Bool()
 		targetAddr = app.Flag("server", "hostport of the target spiffe server").Default("localhost:3443").String()
-		certPath   = app.Flag("cert-file", "path to client certificate file").Default(filepath.Join(constants.DefaultStateDir, constants.AdminCertFilename)).ExistingFile()
-		keyPath    = app.Flag("key-file", "path to client private key file").Default(filepath.Join(constants.DefaultStateDir, constants.AdminKeyFilename)).ExistingFile()
-		caPath     = app.Flag("ca-file", "path to client certificate authority cert file").Default(filepath.Join(constants.DefaultStateDir, constants.AdminCertCAFilename)).ExistingFile()
+		certPath   = app.Flag("cert-file", "path to client certificate file").Default(filepath.Join(constants.DefaultStateDir, constants.AdminCertFilename)).String()
+		keyPath    = app.Flag("key-file", "path to client private key file").Default(filepath.Join(constants.DefaultStateDir, constants.AdminKeyFilename)).String()
+		caPath     = app.Flag("ca-file", "path to client certificate authority cert file").Default(filepath.Join(constants.DefaultStateDir, constants.AdminCertCAFilename)).String()
+
+		k8sSecretNamespace = app.Flag("k8s-namespace", "namespace").Default("default").String()
+		k8sSecretName      = app.Flag("k8s-secret", "name of kubernetes secret to pull credentials from").String()
 
 		cbundles     = app.Command("bundle", "operations on trusted root certificate bundles")
 		cbundlesList = cbundles.Command("ls", "list trusted root certificate bundles")
@@ -96,25 +101,15 @@ func run() error {
 		identity.InitLoggerDebug()
 	}
 
-	certPEM, err := toolbox.ReadPath(*certPath)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	keyPEM, err := toolbox.ReadPath(*keyPath)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	caPEM, err := toolbox.ReadPath(*caPath)
+	keyPair, err := getCreds(*certPath, *keyPath, *caPath, *k8sSecretNamespace, *k8sSecretName)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
 	client, err := api.NewClientFromConfig(api.ClientConfig{
-		TLSKey:     keyPEM,
-		TLSCert:    certPEM,
-		TLSCA:      caPEM,
+		TLSKey:     keyPair.KeyPEM,
+		TLSCert:    keyPair.CertPEM,
+		TLSCA:      keyPair.CAPEM,
 		TargetAddr: *targetAddr,
 	})
 	if err != nil {
@@ -184,4 +179,32 @@ func (id *spiffeID) Set(val string) error {
 
 func (id *spiffeID) String() string {
 	return (*identity.ID)(id).String()
+}
+
+func getCreds(certPath, keyPath, caPath, k8sNamespace, k8sSecret string) (*workload.KeyPair, error) {
+	if k8sSecret != "" {
+		if k8sNamespace == "" {
+			k8sNamespace = "default"
+		}
+		log.Debugf("pulling creds from secret %v in %v namespace", k8sSecret, k8sNamespace)
+		return k8s.ReadKeyPairFromSecret(k8sNamespace, k8sSecret)
+	}
+	log.Debugf("pulling creds from local paths cert=%v key=%v ca-cert=%v", certPath, keyPath, caPath)
+
+	certPEM, err := toolbox.ReadPath(certPath)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	keyPEM, err := toolbox.ReadPath(keyPath)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	caPEM, err := toolbox.ReadPath(caPath)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	return &workload.KeyPair{CertPEM: certPEM, KeyPEM: keyPEM, CAPEM: caPEM}, nil
 }

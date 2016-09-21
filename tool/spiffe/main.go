@@ -11,9 +11,6 @@ import (
 	"github.com/gravitational/trace"
 	"golang.org/x/net/context"
 	"gopkg.in/alecthomas/kingpin.v2"
-	"k8s.io/client-go/1.4/kubernetes"
-	"k8s.io/client-go/1.4/pkg/api"
-	"k8s.io/client-go/1.4/rest"
 )
 
 func main() {
@@ -21,25 +18,6 @@ func main() {
 		log.Error(trace.DebugReport(err))
 		os.Exit(255)
 	}
-}
-
-func testK8s() error {
-	// creates the in-cluster config
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	// creates the clientset
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	pods, err := clientset.Core().Pods("kube-system").List(api.ListOptions{})
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	log.Infof("pods: %#v", pods)
-	return nil
 }
 
 func run() error {
@@ -76,10 +54,6 @@ func run() error {
 			cancel()
 		}
 	}()
-
-	if err := testK8s(); err != nil {
-		return trace.Wrap(err)
-	}
 
 	return p.Start(ctx)
 }

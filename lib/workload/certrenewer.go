@@ -118,18 +118,20 @@ func (m *MemStorage) WritePath(path string, data []byte) error {
 	return nil
 }
 
-// FileReader specifies method to read file from storage
-type FileReader func() ([]byte, error)
+// KeyPairReader specifies method to read keypair from storage
+type KeyPairReader func() (*KeyPair, error)
 
-// FileWriter specifies a method to write files to storage
-type FileWriter func([]byte) error
+// KeyPairWriter specifies a method to write files to storage
+type KeyPairWriter func(KeyPair) error
 
-// RenewedKeyPair contains renewed certificate and private key
-type RenewedKeyPair struct {
+// KeyPair contains renewed certificate and private key
+type KeyPair struct {
 	// CertPEM is a PEM encoded certificate
 	CertPEM []byte
 	// KeyPEM is a PEM encoded private key
 	KeyPEM []byte
+	// CAPEM is a PEM file with certificate of the certificate authority
+	CAPEM []byte
 }
 
 // CertRenewerConfig configures certificate renewer
@@ -139,16 +141,12 @@ type CertRenewerConfig struct {
 	Template CertificateRequestTemplate
 	// Service is a workload service
 	Service Service
-	// ReadKey is used to read private key from storage
-	ReadKey FileReader
-	// ReadCert is used to read certificate from storage
-	ReadCert FileReader
+	// ReadKey is used to read private keypair from storage
+	ReadKeyPair KeyPairReader
 	// WriteKey is used to write back the newly generated private key
-	WriteKey FileWriter
-	// CertWriter is used to write back the newly signed certificate
-	WriteCert FileWriter
+	WriteKeyPair KeyPairWriter
 	// EventsC is a channel for notifications about renewed certifictes
-	EventsC chan *RenewedKeyPair
+	EventsC chan *KeyPair
 	// Entry is a logger entry
 	Entry *log.Entry
 }
@@ -161,17 +159,11 @@ func (c *CertRenewerConfig) CheckAndSetDefaults() error {
 	if c.Service == nil {
 		return trace.BadParameter("missing parmeter Service")
 	}
-	if c.ReadKey == nil {
-		return trace.BadParameter("missing parameter ReadKey")
+	if c.ReadKeyPair == nil {
+		return trace.BadParameter("missing parameter ReadKeyPair")
 	}
-	if c.WriteKey == nil {
-		return trace.BadParameter("missing parameter WriteKey")
-	}
-	if c.ReadCert == nil {
-		return trace.BadParameter("missing parameter ReadCert")
-	}
-	if c.WriteCert == nil {
-		return trace.BadParameter("missing parameter WRiteCert")
+	if c.WriteKeyPair == nil {
+		return trace.BadParameter("missing parameter WriteKeyPair")
 	}
 	if c.Entry == nil {
 		return trace.BadParameter("missing parameter Entry")
@@ -275,29 +267,21 @@ func (r *CertRenewer) Start(ctx context.Context) error {
 }
 
 func (r *CertRenewer) Renew(ctx context.Context) error {
-	keyPEM, err := r.ReadKey()
+	keyPair, err := r.ReadKeyPair()
 	if err != nil {
 		if !trace.IsNotFound(err) {
 			return trace.Wrap(err)
 		}
-		r.Debugf("key is not found, generate a new one")
-		keyPEM, err = identity.GenerateRSAPrivateKeyPEM()
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		err = r.WriteKey(keyPEM)
+		keyPair = &KeyPair{}
+		r.Debugf("keypair is not found, generate a new one")
+		keyPair.KeyPEM, err = identity.GenerateRSAPrivateKeyPEM()
 		if err != nil {
 			return trace.Wrap(err)
 		}
 	}
 
-	certPEM, err := r.ReadCert()
-	if err != nil {
-		if !trace.IsNotFound(err) {
-			return trace.Wrap(err)
-		}
-	} else {
-		cert, err := ParseCertificatePEM(certPEM)
+	if len(keyPair.CertPEM) != 0 {
+		cert, err := ParseCertificatePEM(keyPair.CertPEM)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -311,7 +295,7 @@ func (r *CertRenewer) Renew(ctx context.Context) error {
 	}
 
 	r.Debugf("going to generate a new certificate")
-	r.Template.KeyPEM = keyPEM
+	r.Template.KeyPEM = keyPair.KeyPEM
 	csr, err := CreateCertificateRequest(r.Template)
 	if err != nil {
 		return trace.Wrap(err)
@@ -320,13 +304,21 @@ func (r *CertRenewer) Renew(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	if err := r.WriteCert(re.Cert); err != nil {
+	keyPair.CertPEM = re.Cert
+
+	cert, err := r.Service.GetCertAuthorityCert(ctx, r.Template.CertAuthorityID)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	keyPair.CAPEM = cert.Cert
+
+	if err := r.WriteKeyPair(*keyPair); err != nil {
 		return trace.Wrap(err)
 	}
 
 	if r.EventsC != nil {
 		select {
-		case r.EventsC <- &RenewedKeyPair{CertPEM: re.Cert, KeyPEM: keyPEM}:
+		case r.EventsC <- keyPair:
 			return nil
 		default:
 			return trace.ConnectionProblem(nil, "failed to send event")

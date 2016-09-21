@@ -76,6 +76,8 @@ data:
   k8s.yaml: |
     debug: true
     statedir: /var/lib/spiffe
+    k8s:
+      enabled: true
     profilelistenaddr: localhost:6060
     advertisehostname: spiffe.kube-system.svc.cluster.local
     rpclistenaddr: 0.0.0.0:3443

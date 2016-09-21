@@ -17,7 +17,7 @@ import (
 )
 
 func certAuthoritySign(ctx context.Context, service workload.Service, id identity.ID, certAuthorityID, keyPath, certPath, commonName string, ttl time.Duration, watchUpdates bool, hooks []string) error {
-	eventsC := make(chan *workload.RenewedKeyPair, 10)
+	eventsC := make(chan *workload.KeyPair, 10)
 	renewer, err := workload.NewCertRenewer(workload.CertRenewerConfig{
 		Entry: log.WithFields(log.Fields{
 			trace.Component: constants.ComponentCLI,
@@ -30,7 +30,7 @@ func certAuthoritySign(ctx context.Context, service workload.Service, id identit
 			},
 			TTL: ttl,
 		},
-		ReadKey: func() ([]byte, error) {
+		ReadKeyPair: func() (*workload.KeyPair, error) {
 			keyData, err := toolbox.ReadPath(keyPath)
 			if err != nil {
 				return nil, trace.Wrap(err)
@@ -39,9 +39,6 @@ func certAuthoritySign(ctx context.Context, service workload.Service, id identit
 				log.Debugf("failed to parse %v key, will overwrite", keyPath)
 				return nil, trace.NotFound("ignoring bad key")
 			}
-			return keyData, nil
-		},
-		ReadCert: func() ([]byte, error) {
 			certData, err := toolbox.ReadPath(certPath)
 			if err != nil {
 				return nil, trace.Wrap(err)
@@ -50,13 +47,16 @@ func certAuthoritySign(ctx context.Context, service workload.Service, id identit
 				log.Debugf("failed to parse %v cert, will overwrite", certPath)
 				return nil, trace.NotFound("ignoring bad certificate")
 			}
-			return certData, nil
+			return &workload.KeyPair{KeyPEM: keyData, CertPEM: certData}, nil
 		},
-		WriteKey: func(data []byte) error {
-			return toolbox.WritePath(keyPath, data, constants.DefaultPrivateFileMask)
-		},
-		WriteCert: func(data []byte) error {
-			return toolbox.WritePath(certPath, data, constants.DefaultPrivateFileMask)
+		WriteKeyPair: func(keyPair workload.KeyPair) error {
+			if err := toolbox.WritePath(keyPath, keyPair.KeyPEM, constants.DefaultPrivateFileMask); err != nil {
+				return trace.Wrap(err)
+			}
+			if err := toolbox.WritePath(certPath, keyPair.CertPEM, constants.DefaultPrivateFileMask); err != nil {
+				return trace.Wrap(err)
+			}
+			return nil
 		},
 		Service: service,
 		EventsC: eventsC,
@@ -126,7 +126,7 @@ func certAuthorityGenerate(ctx context.Context, service workload.Service, id, co
 		fmt.Printf("%v successfully updated\n", certAuthorityToString(certAuthority))
 		return nil
 	}
-	if err := service.UpsertCertAuthority(ctx, certAuthority); err != nil {
+	if err := service.CreateCertAuthority(ctx, certAuthority); err != nil {
 		return trace.Wrap(err)
 	}
 	fmt.Printf("%v successfully created\n", certAuthorityToString(certAuthority))

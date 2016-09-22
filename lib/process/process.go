@@ -76,7 +76,7 @@ func (p *Process) startNewServer(ctx context.Context, listener net.Listener, key
 	}
 
 	// creates new server implemenation with Etcd-backed ACL
-	server, err := api.NewServer(workload.NewACL(p.backend, auth, clockwork.NewRealClock()))
+	server, err := api.NewServer(workload.NewACLedService(p.backend, auth, clockwork.NewRealClock()))
 	if err != nil {
 		return trace.Wrap(err)
 	}

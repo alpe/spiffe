@@ -31,6 +31,7 @@ package k8s
 
 import (
 	"crypto/x509/pkix"
+	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -95,13 +96,24 @@ func GetClient() (*kubernetes.Clientset, error) {
 	return clientset, nil
 }
 
+const (
+	defaultCertName = "cert"
+	defaultKeyName  = "key"
+)
+
 // ReadKeyPairFromSecret reads key pair directly from K8s secret
 func ReadKeyPairFromSecret(namespace string, name string) (*workload.KeyPair, error) {
 	client, err := GetClient()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	secretRW := &secretRW{namespace: namespace, secretName: name, client: client}
+	secretRW := &secretRW{
+		namespace:  namespace,
+		secretName: name,
+		client:     client,
+		certName:   defaultCertName,
+		keyName:    defaultKeyName,
+	}
 	return secretRW.ReadKeyPair()
 }
 
@@ -177,7 +189,16 @@ func (s *Service) installCertAuthority(ctx context.Context, namespace kubeNamesp
 		return trace.Wrap(err)
 	}
 	err = s.startRenewer(ctx, namespace)
-	return trace.Wrap(err)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	go func() {
+		err := s.watchPods(ctx, namespace)
+		if err != nil {
+			s.Error(trace.DebugReport(err))
+		}
+	}()
+	return nil
 }
 
 func (s *Service) uninstallCertAuthority(ctx context.Context, namespace kubeNamespace) error {
@@ -278,6 +299,193 @@ func (s *Service) upsertCertAuthority(ctx context.Context, namespace kubeNamespa
 	return nil
 }
 
+const (
+	AnnotationRoots = "spiffe.io/roots"
+	AnnotationCerts = "spiffe.io/certs"
+)
+
+type PodRequest struct {
+	SignRequests []SignRequest
+	Bundles      []BundleRequest
+}
+
+func (p *PodRequest) Check() error {
+	for _, c := range p.SignRequests {
+		if err := c.Check(); err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	for _, b := range p.Bundles {
+		if err := b.Check(); err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	return nil
+}
+
+type BundleRequest struct {
+	Bundle     string
+	SecretName string
+}
+
+func (b *BundleRequest) Check() error {
+	if b.Bundle == "" {
+		return trace.BadParameter("no bundle id specified")
+	}
+	if b.SecretName == "" {
+		return trace.BadParameter("missing secret name")
+	}
+	return nil
+}
+
+type SignRequest struct {
+	SecretName string
+	CA         string
+	ID         string
+	CommonName string
+	TTL        string
+	Key        string
+	Cert       string
+}
+
+func (s *SignRequest) Check() error {
+	if s.CA == "" {
+		return trace.BadParameter("missing parameter ca")
+	}
+	if s.ID == "" {
+		return trace.BadParameter("missing parameter id")
+	}
+	if _, err := identity.ParseID(s.ID); err != nil {
+		return trace.BadParameter("bad SPIFFE id: %v, error: %v", s.ID, err.Error())
+	}
+	if s.CommonName == "" {
+		return trace.BadParameter("missing parameter commonName")
+	}
+	if s.TTL == "" {
+		return trace.BadParameter("missing parameter TTL")
+	}
+	if _, err := time.ParseDuration(s.TTL); err != nil {
+		return trace.BadParameter("failed to parse %v duration", s.TTL)
+	}
+	if s.Key == "" {
+		return trace.BadParameter("missing parameter Key")
+	}
+	if s.Cert == "" {
+		return trace.BadParameter("missing parameter Cert")
+	}
+	return nil
+}
+
+func parsePOD(podName string, annotations map[string]string) (*PodRequest, error) {
+	if len(annotations) == 0 {
+		return nil, trace.NotFound("no SPIFFE annotations found in %v", podName)
+	}
+
+	p := PodRequest{}
+	rootsVal, ok := annotations[AnnotationRoots]
+	if ok {
+		err := json.Unmarshal([]byte(rootsVal), &p.Bundles)
+		if err != nil {
+			return nil, trace.BadParameter("failed to parse %v for pod %v from %v, error: %v", AnnotationRoots, podName, rootsVal, err.Error())
+		}
+	}
+	certsVal, ok := annotations[AnnotationCerts]
+	if ok {
+		err := json.Unmarshal([]byte(certsVal), &p.SignRequests)
+		if err != nil {
+			return nil, trace.BadParameter("failed to parse %v for pod %v from %v, error: %v", AnnotationCerts, podName, certsVal, err.Error())
+		}
+	}
+
+	if err := p.Check(); err != nil {
+		return nil, trace.BadParameter("failed to parse %v for pod %v from, error: %v", AnnotationCerts, podName, err.Error())
+	}
+
+	return &p, nil
+}
+
+func (s *Service) processPOD(ctx context.Context, namespace kubeNamespace, podName string, annotations map[string]string) error {
+	s.Infof("processPOD(%v, %v)", namespace, podName)
+	p, err := parsePOD(podName, annotations)
+	if err != nil {
+		if trace.IsNotFound(err) {
+			s.Debugf("%v has no spiffe information", podName)
+			return nil
+		}
+		return trace.Wrap(err)
+	}
+
+	for _, signRequest := range p.SignRequests {
+		_, err := s.newCertRenewer(ctx, namespace, signRequest)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+
+	for _, bundle := range p.Bundles {
+		err = s.newBundleRenewer(ctx, namespace, bundle)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+
+	return nil
+}
+
+func (s *Service) watchPods(ctx context.Context, namespace kubeNamespace) error {
+	s.Infof("watchPods for %v", namespace)
+	pods, err := s.client.Core().Pods(string(namespace)).List(api.ListOptions{})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	for _, pod := range pods.Items {
+		err := s.processPOD(ctx, namespace, pod.Name, pod.Annotations)
+		if err != nil {
+			log.Warning(trace.DebugReport(err))
+		}
+	}
+
+	watcher, err := s.client.Core().Pods(string(namespace)).Watch(api.ListOptions{})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer watcher.Stop()
+
+	accessor := meta.NewAccessor()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	eventsC := watcher.ResultChan()
+	for {
+		select {
+		case event := <-eventsC:
+			if event.Type == watch.Error {
+				s.Warningf("unsupported event: %#v", event)
+			}
+			podName, err := accessor.Name(event.Object)
+			if err != nil {
+				return trace.Wrap(err)
+			}
+			podAnnotations, err := accessor.Annotations(event.Object)
+			if err != nil {
+				return trace.Wrap(err)
+			}
+			if event.Type == watch.Added || event.Type == watch.Modified {
+				if err := s.processPOD(ctx, namespace, podName, podAnnotations); err != nil {
+					log.Warning(trace.DebugReport(err))
+				}
+			}
+			if event.Type == watch.Deleted {
+
+			}
+		case <-ctx.Done():
+			s.Infof("context is closing")
+			return nil
+		}
+	}
+}
+
 func (s *Service) watchNamespaces(ctx context.Context) error {
 	namespaces, err := s.client.Core().Namespaces().List(api.ListOptions{})
 	if err != nil {
@@ -326,6 +534,79 @@ func (s *Service) watchNamespaces(ctx context.Context) error {
 	}
 }
 
+func (s *Service) newCertRenewer(ctx context.Context, namespace kubeNamespace, signRequest SignRequest) (*renewerBundle, error) {
+	renewerContext, cancelFunc := context.WithCancel(ctx)
+
+	secretRW := &secretRW{
+		client:     s.client,
+		secretName: signRequest.SecretName,
+		namespace:  string(namespace),
+		certName:   signRequest.Cert,
+		keyName:    signRequest.Key,
+	}
+
+	id, err := identity.ParseID(signRequest.ID)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	renewer, err := workload.NewCertRenewer(workload.CertRenewerConfig{
+		Entry: log.WithFields(log.Fields{
+			trace.Component: constants.ComponentSPIFFE,
+		}),
+		Template: workload.CertificateRequestTemplate{
+			CertAuthorityID: signRequest.CA,
+			ID:              *id,
+			Subject: pkix.Name{
+				CommonName: signRequest.CommonName,
+			},
+			TTL: constants.DefaultLocalCertTTL,
+		},
+		ReadKeyPair:  secretRW.ReadKeyPair,
+		WriteKeyPair: secretRW.WriteKeyPair,
+		Service:      s.Service,
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	go func() {
+		err := renewer.Start(renewerContext)
+		if err != nil {
+			log.Error(trace.DebugReport(err))
+		}
+	}()
+	return &renewerBundle{renewer: renewer, cancelFunc: cancelFunc, secretRW: secretRW}, nil
+}
+
+func (s *Service) newBundleRenewer(ctx context.Context, namespace kubeNamespace, bundle BundleRequest) error {
+	renewerContext, _ := context.WithCancel(ctx)
+
+	bundleWriter := &bundleWriter{
+		client:     s.client,
+		secretName: bundle.SecretName,
+		namespace:  string(namespace),
+	}
+
+	renewer, err := workload.NewBundleRenewer(workload.BundleRenewerConfig{
+		Entry: log.WithFields(log.Fields{
+			trace.Component: constants.ComponentSPIFFE,
+		}),
+		TrustedRootBundleID: bundle.Bundle,
+		Service:             s.Service,
+		WriteBundle:         bundleWriter.WriteBundle,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	go func() {
+		err := renewer.Start(renewerContext)
+		if err != nil {
+			log.Error(trace.DebugReport(err))
+		}
+	}()
+	return nil
+}
+
 func (s *Service) newRenewer(ctx context.Context, namespace kubeNamespace) (*renewerBundle, error) {
 	renewerContext, cancelFunc := context.WithCancel(ctx)
 
@@ -333,6 +614,8 @@ func (s *Service) newRenewer(ctx context.Context, namespace kubeNamespace) (*ren
 		client:     s.client,
 		secretName: namespace.SecretID(),
 		namespace:  string(namespace),
+		keyName:    defaultKeyName,
+		certName:   defaultCertName,
 	}
 
 	renewer, err := workload.NewCertRenewer(workload.CertRenewerConfig{
@@ -453,6 +736,8 @@ type secretRW struct {
 	namespace  string
 	secretName string
 	client     *kubernetes.Clientset
+	keyName    string
+	certName   string
 }
 
 func (s *secretRW) DeleteKeyPair() error {
@@ -465,17 +750,60 @@ func (s *secretRW) ReadKeyPair() (*workload.KeyPair, error) {
 	if err != nil {
 		return nil, convertError(err)
 	}
-	return &workload.KeyPair{CertPEM: secret.Data["cert"], KeyPEM: secret.Data["key"], CAPEM: secret.Data["ca-cert"]}, nil
+	return &workload.KeyPair{CertPEM: secret.Data[s.certName], KeyPEM: secret.Data[s.keyName], CAPEM: secret.Data["ca-cert"]}, nil
 }
 
 func (s *secretRW) WriteKeyPair(keyPair workload.KeyPair) error {
 	secret := v1.Secret{
 		Data: map[string][]byte{
-			"cert":    keyPair.CertPEM,
-			"key":     keyPair.KeyPEM,
-			"ca-cert": keyPair.CAPEM,
+			s.certName: keyPair.CertPEM,
+			s.keyName:  keyPair.KeyPEM,
+			"ca-cert":  keyPair.CAPEM,
 		},
 	}
+	secret.Name = s.secretName
+	_, err := s.client.Secrets(s.namespace).Create(&secret)
+	err = convertError(err)
+	if err != nil {
+		if !trace.IsAlreadyExists(err) {
+			return trace.Wrap(err)
+		}
+	}
+	_, err = s.client.Secrets(s.namespace).Update(&secret)
+	return convertError(err)
+}
+
+type bundleWriter struct {
+	namespace  string
+	secretName string
+	client     *kubernetes.Clientset
+}
+
+func (s *bundleWriter) WriteBundle(ctx context.Context, certAuthorities workload.Authorities, bundle *workload.TrustedRootBundle) error {
+	secret := v1.Secret{
+		Data: map[string][]byte{},
+	}
+	var certs []workload.CertAuthority
+	for _, id := range bundle.CertAuthorityIDs {
+		cert, err := certAuthorities.GetCertAuthorityCert(ctx, id)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		certs = append(certs, *cert)
+	}
+	// write certs from cert authorities first
+	for _, cert := range certs {
+		secret.Data["certauthority"+"."+cert.ID+".pem"] = cert.Cert
+	}
+	// write bundle external certs
+	for _, cert := range bundle.Certs {
+		filename := cert.Filename
+		if filename == "" {
+			filename = "cert" + "." + cert.ID + ".pem"
+		}
+		secret.Data[filename] = cert.Cert
+	}
+
 	secret.Name = s.secretName
 	_, err := s.client.Secrets(s.namespace).Create(&secret)
 	err = convertError(err)

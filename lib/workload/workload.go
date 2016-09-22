@@ -29,6 +29,7 @@ import (
 	"golang.org/x/net/context"
 )
 
+// CertAuthority represents an authority that this server is representing.
 type CertAuthority struct {
 	// ID is a unique identifier of the authority, usually SPIFFE org name
 	ID string
@@ -249,14 +250,14 @@ type Workloads interface {
 	GetWorkloads(ctx context.Context) ([]Workload, error)
 }
 
-// CertificateRequest is a request to sign particular certificate
+// CertificateRequest is a request to sign a CSR by a particular certificate
 // authority
 type CertificateRequest struct {
 	// CertAuthorityID is the ID of the certificate authority that
 	// should sign the certificate
 	CertAuthorityID string
 	// TTL is the desired TTL of the certificate. May be rejected if permissions
-	// do not allow the requiured TTL
+	// do not allow the requested TTL
 	TTL time.Duration
 	// CSR is a certificate signing request PEM bytes
 	CSR []byte

@@ -117,10 +117,14 @@ func (p *Process) restartServer(ctx context.Context, listener net.Listener, keyP
 	}
 	if listener != nil {
 		// close the previous listener to stop the previous server
-		if err := listener.Close(); err != nil {
+		if err = listener.Close(); err != nil {
 			return nil, trace.Wrap(err)
 		}
 	}
+
+	// This loop is subtle.  It will try restarting the server until there is no
+	// error.  This can happen if someone else is listening on that address or the
+	// previous server is taking its time shutting down.
 	listener, err = restartFn()
 	if err == nil {
 		return listener, nil
@@ -200,7 +204,7 @@ func (p *Process) listenAndServe(ctx context.Context) error {
 			p.Debugf("context is closing")
 			if listener != nil {
 				// close the previous listener to stop the previous server
-				if err := listener.Close(); err != nil {
+				if err = listener.Close(); err != nil {
 					return trace.Wrap(err)
 				}
 			}
@@ -278,7 +282,7 @@ func (p *Process) initLocalService(ctx context.Context) error {
 		if !trace.IsNotFound(err) {
 			return trace.Wrap(err)
 		}
-		log.Infof("setting up Admin cert authority")
+		p.Infof("setting up Admin cert authority")
 		keyPEM, certPEM, err := identity.GenerateSelfSignedCA(pkix.Name{
 			CommonName:   constants.AdminOrg,
 			Organization: []string{constants.AdminOrg},

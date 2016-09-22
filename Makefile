@@ -22,7 +22,7 @@ version:
 
 # install installs binary
 .PHONY: install
-install: 
+install:
 	go install github.com/spiffe/spiffe/tool/spiffe github.com/spiffe/spiffe/tool/spiffectl
 
 .PHONY: build
@@ -67,7 +67,8 @@ buildbox:
 # containers builds container with spiffe
 .PHONY: containers
 containers:
-	$(eval TMPDIR := $(shell mktemp -d))
+	mkdir -p _tmp
+	$(eval TMPDIR := $(shell mktemp -d $(CURDIR)/_tmp/temp.XXXXXX))
 	if [ ! -d "$(TMPDIR)" ] ; then \
 		echo "failed to generate temp dir" && exit 255 ;\
 	fi
@@ -133,7 +134,7 @@ buildbox-grpc:
 	cd $(GRPC_DIRS) && protoc -I=.:$$PROTO_INCLUDE \
       --grpc-gateway_out=logtostderr=true:. \
       --swagger_out=logtostderr=true:. \
-      *.proto	
+      *.proto
 
 
 # This is to clean up flymake_ stuff hanging around as a result of Emacs-Flymake
@@ -142,6 +143,7 @@ remove-temp-files:
 	@if [ $$USER != vagrant ] ; then \
 		find . -name flymake_* -delete ; \
 	fi
+	@rm -rf _tmp || true
 
 
 PWD := $(shell pwd)

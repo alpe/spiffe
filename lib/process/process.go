@@ -218,8 +218,9 @@ func (p *Process) listenAndServe(ctx context.Context) error {
 	}
 }
 
-// initLocalAdminCreds starts new renewer process that will create and rotate certs
-// for local admins
+// initLocalAdminCreds starts new renewer process that will create and rotate
+// certs for local admins.  These get written to disk so that the admin tools
+// can always have good certs ready to go.
 func (p *Process) initLocalAdminCreds(ctx context.Context) error {
 	keyPath := filepath.Join(p.StateDir, constants.AdminKeyFilename)
 	certPath := filepath.Join(p.StateDir, constants.AdminCertFilename)
@@ -272,7 +273,10 @@ func (p *Process) initLocalAdminCreds(ctx context.Context) error {
 	return workload.SetAdminPermissions(ctx, p.localService, p.adminID, constants.DefaultCATTL)
 }
 
-// initLocalService initialises local SPIFFE service using ETCD backend
+// initLocalService initialises local SPIFFE service using ETCD backend.
+//
+// This server isn't ACLed.  We then configure it with a cert authority for the
+// admin namespace if not already configured.
 func (p *Process) initLocalService(ctx context.Context) error {
 	p.localService = workload.NewService(p.backend, nil)
 
@@ -319,6 +323,7 @@ func (p *Process) startService(ctx context.Context) error {
 	if err = p.initLocalAdminCreds(ctx); err != nil {
 		return trace.Wrap(err)
 	}
+
 	if p.K8s.Enabled {
 		p.Infof("starting K8s helper goroutine")
 		service, err := k8s.NewService(k8s.ServiceConfig{

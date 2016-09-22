@@ -73,7 +73,11 @@ containers:
 		echo "failed to generate temp dir" && exit 255 ;\
 	fi
 	mkdir -p $(TMPDIR)/build/opt/spiffe
-	docker run -v $(shell pwd):/go/src/github.com/spiffe/spiffe -v $(TMPDIR)/build/opt/spiffe:/out $(BUILDBOX_TAG) make -C /go/src/github.com/spiffe/spiffe build BUILDDIR=/out
+	docker run \
+	  -v $(shell pwd):/go/src/github.com/spiffe/spiffe \
+	  -v $(TMPDIR)/build/opt/spiffe:/out \
+		$(BUILDBOX_TAG) \
+		make -C /go/src/github.com/spiffe/spiffe build BUILDDIR=/out
 	cp build.assets/k8s/docker/spiffe.dockerfile $(TMPDIR)
 	cd $(TMPDIR) && docker build -t $(IMAGE):$(TAG) --file spiffe.dockerfile .
 	rm -rf $(TMPDIR)

@@ -1,4 +1,37 @@
 apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  labels:
+    app: spiffe
+  name: spiffe-node
+  namespace: kube-system
+spec:
+  template:
+    metadata:
+      labels:
+        app: spiffe
+    spec:
+      containers:
+      - image: apiserver:5000/spiffe:latest
+        name: spiffe-node
+        imagePullPolicy: Always
+        command: ["/bin/sleep", "100000"]
+        securityContext:
+          privileged: true        
+        volumeMounts:
+          - name: flex-plugin
+            mountPath: /var/lib/spiffe/flex
+          - name: spiffe-creds
+            mountPath: /var/lib/spiffe/creds
+      volumes:
+        - name: flex-plugin
+          hostPath:
+            path: /usr/libexec/kubernetes/kubelet-plugins/volume/exec/spiffe.io~spiffe/spiffe
+        - name: spiffe-creds
+          secret:
+            secretName: spiffe-creds
+---
+apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   labels:

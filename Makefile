@@ -105,6 +105,7 @@ dev-nginx-destroy:
 
 .PHONY: dev-spiffe-destroy
 dev-spiffe-destroy:
+	- kubectl --namespace=kube-system delete daemonsets/spiffe-node
 	- kubectl --namespace=kube-system delete deployments/spiffe
 	- kubectl --namespace=kube-system delete configmaps/etcd-secrets
 	- kubectl --namespace=kube-system delete configmaps/spiffe

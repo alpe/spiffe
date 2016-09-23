@@ -96,23 +96,19 @@ func GetClient() (*kubernetes.Clientset, error) {
 	return clientset, nil
 }
 
-const (
-	defaultCertName = "cert"
-	defaultKeyName  = "key"
-)
-
 // ReadKeyPairFromSecret reads key pair directly from K8s secret
 func ReadKeyPairFromSecret(namespace string, name string) (*workload.KeyPair, error) {
 	client, err := GetClient()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	secretRW := &secretRW{
+	secretRW, err := newSecretRW(secretRWConfig{
 		namespace:  namespace,
 		secretName: name,
 		client:     client,
-		certName:   defaultCertName,
-		keyName:    defaultKeyName,
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
 	return secretRW.ReadKeyPair()
 }
@@ -537,12 +533,15 @@ func (s *Service) watchNamespaces(ctx context.Context) error {
 func (s *Service) newCertRenewer(ctx context.Context, namespace kubeNamespace, signRequest SignRequest) (*renewerBundle, error) {
 	renewerContext, cancelFunc := context.WithCancel(ctx)
 
-	secretRW := &secretRW{
+	secretRW, err := newSecretRW(secretRWConfig{
 		client:     s.client,
 		secretName: signRequest.SecretName,
 		namespace:  string(namespace),
 		certName:   signRequest.Cert,
 		keyName:    signRequest.Key,
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
 
 	id, err := identity.ParseID(signRequest.ID)
@@ -610,12 +609,13 @@ func (s *Service) newBundleRenewer(ctx context.Context, namespace kubeNamespace,
 func (s *Service) newRenewer(ctx context.Context, namespace kubeNamespace) (*renewerBundle, error) {
 	renewerContext, cancelFunc := context.WithCancel(ctx)
 
-	secretRW := &secretRW{
+	secretRW, err := newSecretRW(secretRWConfig{
 		client:     s.client,
 		secretName: namespace.SecretID(),
 		namespace:  string(namespace),
-		keyName:    defaultKeyName,
-		certName:   defaultCertName,
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
 
 	renewer, err := workload.NewCertRenewer(workload.CertRenewerConfig{
@@ -732,12 +732,48 @@ func convertError(err error) error {
 	return trace.BadParameter(err.Error())
 }
 
-type secretRW struct {
+func newSecretRW(cfg secretRWConfig) (*secretRW, error) {
+	if err := cfg.CheckAndSetDefaults(); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &secretRW{
+		secretRWConfig: cfg,
+	}, nil
+}
+
+type secretRWConfig struct {
 	namespace  string
 	secretName string
 	client     *kubernetes.Clientset
 	keyName    string
 	certName   string
+	caName     string
+}
+
+func (s *secretRWConfig) CheckAndSetDefaults() error {
+	if s.namespace == "" {
+		return trace.BadParameter("missing parameter namespace")
+	}
+	if s.secretName == "" {
+		return trace.BadParameter("missing parameter secretName")
+	}
+	if s.client == nil {
+		return trace.BadParameter("missing parameter client")
+	}
+	if s.caName == "" {
+		s.caName = constants.AdminCertCAFilename
+	}
+	if s.certName == "" {
+		s.certName = constants.AdminCertFilename
+	}
+	if s.keyName == "" {
+		s.keyName = constants.AdminKeyFilename
+	}
+	return nil
+}
+
+type secretRW struct {
+	secretRWConfig
 }
 
 func (s *secretRW) DeleteKeyPair() error {
@@ -758,7 +794,7 @@ func (s *secretRW) WriteKeyPair(keyPair workload.KeyPair) error {
 		Data: map[string][]byte{
 			s.certName: keyPair.CertPEM,
 			s.keyName:  keyPair.KeyPEM,
-			"ca-cert":  keyPair.CAPEM,
+			s.caName:   keyPair.CAPEM,
 		},
 	}
 	secret.Name = s.secretName

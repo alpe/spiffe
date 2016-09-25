@@ -3,7 +3,8 @@ GOGO_PROTO_TAG ?= v0.3
 GRPC_GATEWAY_TAG ?= v1.1.0
 BUILDBOX_TAG := spifee-buildbox:0.0.1
 PLATFORM := linux-x86_64
-GRPC_DIRS := lib/workload/api
+GRPC_WORKLOAD := lib/workload/api
+GRPC_LOCAL := lib/local/localapi
 BUILDDIR ?= .
 IMAGE := spiffe
 TAG := 0.0.1
@@ -130,11 +131,22 @@ grpc: buildbox
 buildbox-grpc:
 # standard GRPC output
 	echo $$PROTO_INCLUDE
-	cd $(GRPC_DIRS) && protoc -I=.:$$PROTO_INCLUDE \
+	cd $(GRPC_WORKLOAD) && protoc -I=.:$$PROTO_INCLUDE \
       --gofast_out=plugins=grpc:.\
     *.proto
 # HTTP JSON gateway adapter
-	cd $(GRPC_DIRS) && protoc -I=.:$$PROTO_INCLUDE \
+	cd $(GRPC_WORKLOAD) && protoc -I=.:$$PROTO_INCLUDE \
+      --grpc-gateway_out=logtostderr=true:. \
+      --swagger_out=logtostderr=true:. \
+      *.proto
+
+# standard GRPC output
+	echo $$PROTO_INCLUDE
+	cd $(GRPC_LOCAL) && protoc -I=.:$$PROTO_INCLUDE \
+      --gofast_out=plugins=grpc:.\
+    *.proto
+# HTTP JSON gateway adapter
+	cd $(GRPC_LOCAL) && protoc -I=.:$$PROTO_INCLUDE \
       --grpc-gateway_out=logtostderr=true:. \
       --swagger_out=logtostderr=true:. \
       *.proto	

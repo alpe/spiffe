@@ -14,11 +14,15 @@ spec:
     metadata:
       labels:
         app: nginx
-      annotations:
-        spiffe.io/roots: '[{"secretName": "spiffe-nginx-roots", "bundle": "kube-system.svc.cluster.local"}]'
-        spiffe.io/certs: '[{"secretName": "spiffe-nginx-certs", "ca": "kube-system.svc.cluster.local", "id": "urn:spiffe:nginx.svc.cluster.local:nginx", "commonName": "*.kube-system.svc.cluster.local", "ttl": "10h", "key": "nginx.pem", "cert": "nginx.cert"}]'        
     spec:
       volumes:
+        - name: test
+          flexVolume:
+            driver: "spiffe.io/flex"
+            fsType: "ext4"
+            options:
+              sasha: "a"
+              hello: "b"
         - name: certs
           secret:
             secretName: spiffe-nginx-certs
@@ -35,6 +39,8 @@ spec:
         - containerPort: 443
           protocol: TCP
         volumeMounts:
+        - mountPath: /var/lib/spiffe/test
+          name: test
         - mountPath: /var/lib/spiffe/certs
           name: certs
         - mountPath: /var/lib/spiffe/roots

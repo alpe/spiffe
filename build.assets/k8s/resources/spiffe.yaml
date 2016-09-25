@@ -2,14 +2,32 @@ apiVersion: extensions/v1beta1
 kind: DaemonSet
 metadata:
   labels:
-    app: spiffe
+    app: spiffe-node
   name: spiffe-node
   namespace: kube-system
 spec:
   template:
     metadata:
       labels:
-        app: spiffe
+        app: spiffe-node
+      annotations:
+        pod.alpha.kubernetes.io/init-containers: '[
+          {
+            "name": "install",
+            "image": "apiserver:5000/spiffe:latest",
+            "command": ["/opt/spiffe/install-flex.sh"],
+            "volumeMounts": [
+                {
+                    "name": "flex-plugin",
+                    "mountPath": "/var/lib/spiffe/flex"
+                },
+                {
+                    "name": "spiffe-creds",
+                    "mountPath": "/var/lib/spiffe/creds"
+                }
+            ]
+          }
+        ]'        
     spec:
       containers:
       - image: apiserver:5000/spiffe:latest
@@ -26,7 +44,7 @@ spec:
       volumes:
         - name: flex-plugin
           hostPath:
-            path: /usr/libexec/kubernetes/kubelet-plugins/volume/exec/spiffe.io~spiffe/spiffe
+            path: /usr/libexec/kubernetes/kubelet-plugins/volume/exec
         - name: spiffe-creds
           secret:
             secretName: spiffe-creds

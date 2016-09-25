@@ -23,12 +23,13 @@ version:
 # install installs binary
 .PHONY: install
 install: 
-	go install github.com/spiffe/spiffe/tool/spiffe github.com/spiffe/spiffe/tool/spiffectl
+	go install github.com/spiffe/spiffe/tool/spiffe github.com/spiffe/spiffe/tool/spiffectl github.com/spiffe/spiffe/tool/flex
 
 .PHONY: build
 build:
 	go build -o $(BUILDDIR)/spiffe github.com/spiffe/spiffe/tool/spiffe
 	go build -o $(BUILDDIR)/spiffectl github.com/spiffe/spiffe/tool/spiffectl
+	go build -o $(BUILDDIR)/flex github.com/spiffe/spiffe/tool/flex
 
 # run runs local dev server
 .PHONY: run
@@ -74,6 +75,8 @@ containers:
 	mkdir -p $(TMPDIR)/build/opt/spiffe
 	docker run -v $(shell pwd):/go/src/github.com/spiffe/spiffe -v $(TMPDIR)/build/opt/spiffe:/out $(BUILDBOX_TAG) make -C /go/src/github.com/spiffe/spiffe build BUILDDIR=/out
 	cp build.assets/k8s/docker/spiffe.dockerfile $(TMPDIR)
+	cp build.assets/install-flex.sh $(TMPDIR)/build/opt/spiffe
+	chmod +x $(TMPDIR)/build/opt/spiffe/install-flex.sh
 	cd $(TMPDIR) && docker build -t $(IMAGE):$(TAG) --file spiffe.dockerfile .
 	rm -rf $(TMPDIR)
 

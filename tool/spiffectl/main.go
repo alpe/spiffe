@@ -86,6 +86,7 @@ func run() error {
 		ccaSignCertAuthorityID = ccaSign.Flag("ca", "CA id to sign this certificate with").Required().String()
 		ccaSignKeyPath         = ccaSign.Flag("out-key-file", "path to write key file").Required().String()
 		ccaSignCertPath        = ccaSign.Flag("out-cert-file", "path to write cert file").Required().String()
+		ccaSignCACertPath      = ccaSign.Flag("out-ca-cert-file", "path to write CA cert file").String()
 		ccaSignHooks           = ccaSign.Flag("exec", "optional command to execute when bundle updates").Strings()
 
 		ccaDelete   = cca.Command("rm", "remove certificate authority")
@@ -144,7 +145,7 @@ func run() error {
 	case ccaImport.FullCommand():
 		return certAuthorityImport(ctx, client, *ccaImportID, *ccaImportKeyPath, *ccaImportCertPath, *ccaImportReplace)
 	case ccaSign.FullCommand():
-		return certAuthoritySign(ctx, client, ccaSignID.ID(), *ccaSignCertAuthorityID, *ccaSignKeyPath, *ccaSignCertPath, *ccaSignCommonName, *ccaSignTTL, *ccaSignRenew, *ccaSignHooks)
+		return certAuthoritySign(ctx, client, ccaSignID.ID(), *ccaSignCertAuthorityID, *ccaSignKeyPath, *ccaSignCertPath, *ccaSignCACertPath, *ccaSignCommonName, *ccaSignTTL, *ccaSignRenew, *ccaSignHooks)
 	case ccaDelete.FullCommand():
 		return certAuthorityDelete(ctx, client, *ccaDeleteID)
 	}

@@ -1,14 +1,15 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
-	"path/filepath"
+	//	"path/filepath"
 	"strings"
 	"syscall"
 
-	"github.com/spiffe/spiffe/lib/constants"
+	//	"github.com/spiffe/spiffe/lib/constants"
 	"github.com/spiffe/spiffe/lib/identity"
 	"github.com/spiffe/spiffe/lib/k8s"
 	"github.com/spiffe/spiffe/lib/toolbox"
@@ -23,22 +24,40 @@ import (
 
 func main() {
 	identity.InitLoggerCLI()
-	if err := run(); err != nil {
+	response, err := run()
+	if err != nil {
 		log.Error(trace.DebugReport(err))
-		fmt.Printf("ERROR: %v\n", err.Error())
-		os.Exit(255)
+		response = statusResponse{
+			Status:  StatusFailure,
+			Message: err.Error(),
+		}
 	}
+	fmt.Print(marshal(response))
 }
 
-func run() error {
-	var (
-		app = kingpin.New("spiffeflex", "Flex volume plugin for K8s")
+func marshal(in interface{}) string {
+	out, err := json.Marshal(in)
+	if err != nil {
+		log.Error(trace.DebugReport(err))
+		return `{"Status": "Failure", "Message": "failed to marshal response"}`
+	}
+	return string(out)
+}
 
-		debug      = app.Flag("debug", "turn on debug logging").Bool()
-		targetAddr = app.Flag("server", "hostport of the target spiffe server").Default("spiffe.kube-system.svc.cluster.local:3443").String()
-		certPath   = app.Flag("cert-file", "path to client certificate file").Default(filepath.Join(constants.DefaultStateDir, constants.AdminCertFilename)).String()
-		keyPath    = app.Flag("key-file", "path to client private key file").Default(filepath.Join(constants.DefaultStateDir, constants.AdminKeyFilename)).String()
-		caPath     = app.Flag("ca-file", "path to client certificate authority cert file").Default(filepath.Join(constants.DefaultStateDir, constants.AdminCertCAFilename)).String()
+const flexDir = "/usr/libexec/kubernetes/kubelet-plugins/volume/exec/spiffe.io~spiffe"
+
+func run() (interface{}, error) {
+	var (
+		app = kingpin.New("flex", "Flex volume plugin for K8s")
+
+		debug = app.Flag("debug", "turn on debug logging").Bool()
+		//targetAddr = app.Flag("server", "hostport of the target spiffe server").Default("spiffe.kube-system.svc.cluster.local:3443").String()
+		//certPath   = app.Flag("cert-file", "path to client certificate file").Default(filepath.Join(flexDir, constants.AdminCertFilename)).String()
+		//keyPath    = app.Flag("key-file", "path to client private key file").Default(filepath.Join(flexDir, constants.AdminKeyFilename)).String()
+		//caPath     = app.Flag("ca-file", "path to client certificate authority cert file").Default(filepath.Join(flexDir, constants.AdminCertCAFilename)).String()
+
+		cinit     = app.Command("init", "init")
+		cinitArgs = cinit.Arg("args", "init arguments").String()
 
 		cattach     = app.Command("attach", "attach volume")
 		cattachArgs = cattach.Arg("args", "attach arguments").String()
@@ -51,33 +70,39 @@ func run() error {
 		cmountDevice = cmount.Arg("device", "mount device").String()
 		cmountArgs   = cmount.Arg("args", "mount device").String()
 
-		cunmount     = app.Command("unmount", "unmount args")
-		cunmountArgs = cunmount.Arg("args", "unmount arguments").String()
+		cunmount    = app.Command("unmount", "unmount args")
+		cunmountDir = cunmount.Arg("dir", "unmount directrory").String()
 	)
 
 	cmd, err := app.Parse(os.Args[1:])
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 
 	if *debug {
 		identity.InitLoggerDebug()
+	} else {
+		identity.InitLoggerCLI()
 	}
 
-	keyPair, err := getCreds(*certPath, *keyPath, *caPath, "", "")
-	if err != nil {
-		return trace.Wrap(err)
-	}
+	/*
+		keyPair, err := getCreds(*certPath, *keyPath, *caPath, "", "")
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+	*/
 
-	client, err := api.NewClientFromConfig(api.ClientConfig{
-		TLSKey:     keyPair.KeyPEM,
-		TLSCert:    keyPair.CertPEM,
-		TLSCA:      keyPair.CAPEM,
-		TargetAddr: *targetAddr,
-	})
-	if err != nil {
-		return trace.Wrap(err)
-	}
+	var client *api.Client
+	/*
+		client, err := api.NewClientFromConfig(api.ClientConfig{
+			TLSKey:     keyPair.KeyPEM,
+			TLSCert:    keyPair.CertPEM,
+			TLSCA:      keyPair.CAPEM,
+			TargetAddr: *targetAddr,
+		})
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}*/
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
@@ -92,27 +117,21 @@ func run() error {
 	}()
 
 	switch cmd {
+	case cinit.FullCommand():
+		return initFlex(ctx, client, *cinitArgs)
 	case cattach.FullCommand():
 		return attach(ctx, client, *cattachArgs)
-	case cbundlesCreate.FullCommand():
-		return bundleCreate(ctx, client, *cbundlesCreateID, *cbundlesCreateDirs, *cbundlesCreateCAIDs, *cbundlesCreateReplace)
-	case cbundlesDelete.FullCommand():
-		return bundleDelete(ctx, client, *cbundlesDeleteID)
-	case cbundlesExport.FullCommand():
-		return bundleExport(ctx, client, *cbundlesExportID, *cbundlesExportDir, *cbundlesExportWatch, *cbundlesExportHooks)
-	case ccaList.FullCommand():
-		return certAuthoritiesList(ctx, client)
-	case ccaCreate.FullCommand():
-		return certAuthorityGenerate(ctx, client, *ccaCreateID, *ccaCreateCommonName, *ccaCreateOrg, *ccaCreateTTL, *ccaCreateReplace)
-	case ccaImport.FullCommand():
-		return certAuthorityImport(ctx, client, *ccaImportID, *ccaImportKeyPath, *ccaImportCertPath, *ccaImportReplace)
-	case ccaSign.FullCommand():
-		return certAuthoritySign(ctx, client, ccaSignID.ID(), *ccaSignCertAuthorityID, *ccaSignKeyPath, *ccaSignCertPath, *ccaSignCommonName, *ccaSignTTL, *ccaSignRenew, *ccaSignHooks)
-	case ccaDelete.FullCommand():
-		return certAuthorityDelete(ctx, client, *ccaDeleteID)
+	case cattach.FullCommand():
+		return attach(ctx, client, *cattachArgs)
+	case cdetach.FullCommand():
+		return detach(ctx, client, *cdetachArgs)
+	case cmount.FullCommand():
+		return mount(ctx, client, *cmountPath, *cmountDevice, *cmountArgs)
+	case cunmount.FullCommand():
+		return unmount(ctx, client, *cunmountDir)
 	}
 
-	return trace.BadParameter("unsupported command: %v", cmd)
+	return nil, trace.BadParameter("unsupported command: %v", cmd)
 }
 
 func printHeader(val string) {

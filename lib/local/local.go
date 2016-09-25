@@ -18,6 +18,7 @@ limitations under the License.
 package local
 
 import (
+	"io"
 	"strings"
 	"time"
 
@@ -29,10 +30,20 @@ import (
 
 // Renewer renews bundles and certificates on a file system
 type Renewer interface {
+	// CreateBundleRequest creates request to renew certficate bundles in local directory
 	CreateBundleRequest(ctx context.Context, r BundleRequest) error
-	CreateSignRequest(ctx context.Context, r CertRequest) error
-	DeleteBundleRequest(ctx, targetDir string) error
-	DeleteCertRequest(ctx, targetDir string) error
+	// CreateCertRequest creates request to sign renew certificates in local directory
+	CreateCertRequest(ctx context.Context, r CertRequest) error
+	// DeleteBundleRequest deletes BundleRequest
+	DeleteBundleRequest(ctx context.Context, targetDir string) error
+	// DeleteCertRequest deletes certificate renewal request
+	DeleteCertRequest(ctx context.Context, targetDir string) error
+	// GetCertRequests returns a list of cert requests
+	GetCertRequests(ctx context.Context) ([]CertRequest, error)
+	// GetBundleRequests returns a list of bundle requests
+	GetBundleRequests(ctx context.Context) ([]BundleRequest, error)
+	// Closer is to close all local resources
+	io.Closer
 }
 
 // BundleRequest requests to export bundle ID to particular directory
@@ -53,10 +64,12 @@ func (b *BundleRequest) Check() error {
 	return nil
 }
 
-func (s *BundleRequest) localID() string {
-	return localBundleRequestID(s.TargetDir)
+// LocalID computes ID from bundle request based on the target directory
+func (s *BundleRequest) LocalID() string {
+	return LocalBundleRequestID(s.TargetDir)
 }
 
+// LocalBundleRequestID computes ID based on the target directory
 func LocalBundleRequestID(targetDir string) string {
 	return strings.Replace(targetDir, "/", "_", -1)
 }
@@ -79,10 +92,12 @@ type CertRequest struct {
 	CAPath string `json:"caPath" yaml:"caPath"`
 }
 
-func (s *CertRequest) localID() string {
-	return localCertRequestID(s.CertPath)
+// LocalID computes ID from the target CertPath
+func (s *CertRequest) LocalID() string {
+	return LocalCertRequestID(s.CertPath)
 }
 
+// LocalCertRequestID creates ID from target certficate path
 func LocalCertRequestID(certPath string) string {
 	return strings.Replace(certPath, "/", "_", -1)
 }

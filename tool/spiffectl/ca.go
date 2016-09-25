@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/spiffe/spiffe/lib/constants"
-	"github.com/spiffe/spiffe/lib/fs"
 	"github.com/spiffe/spiffe/lib/identity"
+	"github.com/spiffe/spiffe/lib/local"
 	"github.com/spiffe/spiffe/lib/toolbox"
 	"github.com/spiffe/spiffe/lib/workload"
 
@@ -19,7 +19,11 @@ import (
 
 func certAuthoritySign(ctx context.Context, service workload.Service, id identity.ID, certAuthorityID, keyPath, certPath, caPath, commonName string, ttl time.Duration, watchUpdates bool, hooks []string) error {
 	eventsC := make(chan *workload.KeyPair, 10)
-	rw, err := fs.NewCertReadWriter(fs.CertReadWriterConfig{KeyPath: keyPath, CertPath: certPath, CAPath: caPath})
+	rw, err := local.NewCertReadWriter(local.CertReadWriterConfig{
+		KeyPath:  keyPath,
+		CertPath: certPath,
+		CAPath:   caPath,
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}

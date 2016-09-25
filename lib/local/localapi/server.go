@@ -164,7 +164,6 @@ func bundleRequestsToGRPC(in []local.BundleRequest) []*BundleRequest {
 
 func bundleRequestsFromGRPC(in []*BundleRequest) []local.BundleRequest {
 	out := make([]local.BundleRequest, len(in))
-	var err error
 	for i := range in {
 		out[i] = *bundleRequestFromGRPC(in[i])
 	}

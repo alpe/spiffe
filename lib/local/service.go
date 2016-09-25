@@ -37,6 +37,7 @@ func New(cfg Config) (*Service, error) {
 		return nil, trace.Wrap(err)
 	}
 	return &Service{
+		Config:  cfg,
 		bundles: make(map[string]*bundleRenewer),
 		certs:   make(map[string]*certRenewer),
 	}, nil

@@ -17,18 +17,23 @@ limitations under the License.
 package localapi
 
 import (
+	"net"
 	"os"
 	"path/filepath"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/spiffe/spiffe/lib/constants"
+	"github.com/spiffe/spiffe/lib/local"
+	"github.com/spiffe/spiffe/lib/local/storage/bolt"
 	"github.com/spiffe/spiffe/lib/local/suite"
 	"github.com/spiffe/spiffe/lib/workload"
 	"github.com/spiffe/spiffe/lib/workload/storage/etcdv2"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/gravitational/trace"
+	"google.golang.org/grpc"
 	. "gopkg.in/check.v1"
 )
 
@@ -38,6 +43,7 @@ type APISuite struct {
 	backend     *bolt.Bolt
 	etcdBackend *etcdv2.TempBackend
 	suite       suite.LocalSuite
+	listener    net.Listener
 }
 
 var _ = Suite(&APISuite{})
@@ -45,6 +51,7 @@ var _ = Suite(&APISuite{})
 func (s *APISuite) SetUpTest(c *C) {
 	log.SetOutput(os.Stderr)
 	log.SetLevel(log.DebugLevel)
+	trace.SetDebug(true)
 
 	testETCD := os.Getenv(constants.TestETCD)
 
@@ -61,12 +68,41 @@ func (s *APISuite) SetUpTest(c *C) {
 
 	dir := c.MkDir()
 
-	s.backend, err = New(Config{
+	s.backend, err = bolt.New(bolt.Config{
 		Path: filepath.Join(dir, "bolt.db"),
 	})
 	c.Assert(err, IsNil)
 
-	s.suite.R = s.backend
+	socketAddr := filepath.Join(dir, "server.sock")
+
+	s.listener, err = net.Listen("unix", socketAddr)
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+
+	renewerService, err := local.New(local.Config{
+		Workload: localService,
+		Storage:  s.backend,
+	})
+	c.Assert(err, IsNil)
+
+	renewerServer, err := NewServer(renewerService)
+	c.Assert(err, IsNil)
+
+	server := grpc.NewServer()
+	RegisterRenewerServer(server, renewerServer)
+
+	go server.Serve(s.listener)
+
+	conn, err := grpc.Dial("localhost:0", grpc.WithInsecure(),
+		grpc.WithDialer(func(addr string, _ time.Duration) (net.Conn, error) {
+			return net.Dial("unix", socketAddr)
+		}))
+	c.Assert(err, IsNil)
+	client, err := NewClient(conn)
+	c.Assert(err, IsNil)
+
+	s.suite.R = client
 	s.suite.S = localService
 }
 

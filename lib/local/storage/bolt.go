@@ -253,7 +253,7 @@ func (b *Bolt) GetBundleRequests(ctx context.Context) ([]local.BundleRequest, er
 func (b *Bolt) GetCertRequests(ctx context.Context) ([]local.CertRequest, error) {
 	out := []local.CertRequest{}
 	err := b.db.View(func(tx *bolt.Tx) error {
-		bkt, err := getBucket(tx, bundlesBucket)
+		bkt, err := getBucket(tx, certsBucket)
 		if err != nil {
 			if trace.IsNotFound(err) {
 				return nil

@@ -33,6 +33,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/gravitational/trace"
+	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	. "gopkg.in/check.v1"
 )
@@ -44,6 +45,7 @@ type APISuite struct {
 	etcdBackend *etcdv2.TempBackend
 	suite       suite.LocalSuite
 	listener    net.Listener
+	cancel      context.CancelFunc
 }
 
 var _ = Suite(&APISuite{})
@@ -86,6 +88,12 @@ func (s *APISuite) SetUpTest(c *C) {
 	})
 	c.Assert(err, IsNil)
 
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	s.cancel = cancelFunc
+
+	err = renewerService.Serve(ctx)
+	c.Assert(err, IsNil)
+
 	renewerServer, err := NewServer(renewerService)
 	c.Assert(err, IsNil)
 
@@ -120,6 +128,9 @@ func (s *APISuite) TearDownTest(c *C) {
 			log.Error(trace.DebugReport(err))
 		}
 		c.Assert(err, IsNil)
+	}
+	if s.cancel != nil {
+		s.cancel()
 	}
 }
 

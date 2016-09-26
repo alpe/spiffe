@@ -4,8 +4,20 @@ Users mostly interact with etcd by putting or getting the value of a key. This s
 
 By default, etcdctl talks to the etcd server with the v2 API for backward compatibility. For etcdctl to speak to etcd using the v3 API, the API version must be set to version 3 via the `ETCDCTL_API` environment variable.
 
-``` bash
+```bash
 export ETCDCTL_API=3
+```
+
+## Find versions
+
+etcdctl version and Server API version can be useful in finding the appropriate commands to be used for performing various opertions on etcd.
+
+Here is the command to find the versions:
+
+```bash
+$ etcdctl version
+etcdctl version: 3.1.0-alpha.0+git
+API version: 3.1
 ```
 
 ## Write a key
@@ -14,10 +26,21 @@ Applications store keys into the etcd cluster by writing to keys. Every stored k
 
 Here is the command to set the value of key `foo` to `bar`:
 
-``` bash
+```bash
 $ etcdctl put foo bar
 OK
 ```
+
+Also a key can be set for a specified interval of time by attaching lease to it.
+
+Here is the command to set the value of key `foo1` to `bar1` for 10s.
+
+```bash
+$ etcdctl put foo1 bar1 --lease=1234abcd
+OK
+```
+
+Note: The lease id `1234abcd` in the above command refers to id returned on creating the lease of 10s. This id can then be attached to the key.
 
 ## Read keys
 
@@ -25,7 +48,7 @@ Applications can read values of keys from an etcd cluster. Queries may read a si
 
 Suppose the etcd cluster has stored the following keys:
 
-```
+```bash
 foo = bar
 foo1 = bar1
 foo3 = bar3
@@ -36,6 +59,21 @@ Here is the command to read the value of key `foo`:
 ```bash
 $ etcdctl get foo
 foo
+bar
+```
+
+Here is the command to read the value of key `foo` in hex format:
+
+```bash
+$ etcdctl get foo --hex
+\x66\x6f\x6f          # Key
+\x62\x61\x72          # Value
+```
+
+Here is the command to read only the value of key `foo`:
+
+```bash
+$ etcdctl get foo --print-value-only
 bar
 ```
 
@@ -51,6 +89,16 @@ foo3
 bar3
 ```
 
+Here is the command to range over the keys from `foo` to `foo9` limiting the number of results to 2:
+
+```bash
+$ etcdctl get foo foo9 --limit 2
+foo
+bar
+foo1
+bar1
+```
+
 ## Read past version of keys
 
 Applications may want to read superseded versions of a key. For example, an application may wish to roll back to an old configuration by accessing an earlier version of a key. Alternatively, an application may want a consistent view over multiple keys through multiple requests by accessing key history.
@@ -58,11 +106,11 @@ Since every modification to the etcd cluster key-value store increments the glob
 
 Suppose an etcd cluster already has the following keys:
 
-``` bash
-$ etcdctl put foo bar         # revision = 2
-$ etcdctl put foo1 bar1       # revision = 3
-$ etcdctl put foo bar_new     # revision = 4
-$ etcdctl put foo1 bar1_new   # revision = 5
+```bash
+foo = bar         # revision = 2
+foo1 = bar1       # revision = 3
+foo = bar_new     # revision = 4
+foo1 = bar1_new   # revision = 5
 ```
 
 Here are an example to access the past versions of keys:
@@ -93,9 +141,45 @@ bar
 $ etcdctl get --rev=1 foo foo9 # access the versions of keys at revision 1
 ```
 
+## Read keys which are greater than or equal to the byte value of the specified key
+
+Applications may want to read keys which are greater than or equal to the byte value of the specified key.
+
+Suppose an etcd cluster already has the following keys:
+
+```bash
+a = 123
+b = 456
+z = 789
+```
+
+Here is the command to read keys which are greater than or equal to the byte value of key `b` :
+
+```bash
+$ etcdctl get --from-key b
+b
+456
+z
+789
+```
+
 ## Delete keys
 
 Applications can delete a key or a range of keys from an etcd cluster.
+
+Suppose an etcd cluster already has the following keys:
+
+```bash
+foo = bar
+foo1 = bar1
+foo3 = bar3
+zoo = val
+zoo1 = val1
+zoo2 = val2
+a = 123
+b = 456
+z = 789
+```
 
 Here is the command to delete key `foo`:
 
@@ -108,6 +192,29 @@ Here is the command to delete keys ranging from `foo` to `foo9`:
 
 ```bash
 $ etcdctl del foo foo9
+2 # two keys are deleted
+```
+
+Here is the command to delete key `zoo` with the deleted key value pair returned:
+
+```bash
+$ etcdctl del --prev-kv zoo 
+1   # one key is deleted
+zoo # deleted key
+val # the value of the deleted key
+```
+
+Here is the command to delete keys having prefix as `zoo`:
+
+```bash
+$ etcdctl del --prefix zoo 
+2 # two keys are deleted
+```
+
+Here is the command to delete keys which are greater than or equal to the byte value of key `b` :
+
+```bash
+$ etcdctl del --from-key b
 2 # two keys are deleted
 ```
 
@@ -142,7 +249,7 @@ Applications may want to watch for historical changes of keys in etcd. For examp
 
 Suppose we finished the following sequence of operations:
 
-``` bash
+```bash
 etcdctl put foo bar         # revision = 2
 etcdctl put foo1 bar1       # revision = 3
 etcdctl put foo bar_new     # revision = 4

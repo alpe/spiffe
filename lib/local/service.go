@@ -112,7 +112,6 @@ func (s *Service) Serve(ctx context.Context) error {
 		}
 	}
 
-	<-ctx.Done()
 	return nil
 }
 

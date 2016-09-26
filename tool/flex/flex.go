@@ -8,6 +8,7 @@ import (
 
 	"github.com/spiffe/spiffe/lib/constants"
 	"github.com/spiffe/spiffe/lib/identity"
+	"github.com/spiffe/spiffe/lib/k8s"
 	"github.com/spiffe/spiffe/lib/local"
 
 	log "github.com/Sirupsen/logrus"
@@ -21,10 +22,8 @@ const (
 )
 
 const (
-	DefaultBundleID        = "kube-system.svc.cluster.local"
-	DefaultCertAuthorityID = "kube-system.svc.cluster.local"
-	DefaultCommonName      = "*.kube-system.svc.cluster.local"
-	DefaultID              = "urn:spiffe:svc.cluster.local:generic"
+	DefaultID         = "urn:spiffe:svc.cluster.local:generic"
+	DefaultCommonName = "*.*.svc.cluster.local"
 )
 
 type rawRequest struct {
@@ -111,7 +110,7 @@ func parseRequest(dir string, data string) (*request, error) {
 			TargetDir: dir,
 		}
 		if req.BundleID == "" {
-			req.BundleID = DefaultBundleID
+			req.BundleID = k8s.BundleID
 		}
 		return &request{bundleReq: req}, nil
 	case typeCert:
@@ -124,7 +123,7 @@ func parseRequest(dir string, data string) (*request, error) {
 			}
 		}
 		if raw.CertAuthorityID == "" {
-			raw.CertAuthorityID = DefaultCertAuthorityID
+			raw.CertAuthorityID = k8s.CertAuthorityID
 		}
 		if raw.CommonName == "" {
 			raw.CommonName = DefaultCommonName

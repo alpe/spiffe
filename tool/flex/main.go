@@ -3,22 +3,20 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"os/signal"
-	//	"path/filepath"
-	"strings"
 	"syscall"
+	"time"
 
-	//	"github.com/spiffe/spiffe/lib/constants"
+	"github.com/spiffe/spiffe/lib/constants"
 	"github.com/spiffe/spiffe/lib/identity"
-	"github.com/spiffe/spiffe/lib/k8s"
-	"github.com/spiffe/spiffe/lib/toolbox"
-	"github.com/spiffe/spiffe/lib/workload"
-	"github.com/spiffe/spiffe/lib/workload/api"
+	"github.com/spiffe/spiffe/lib/local/localapi"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/gravitational/trace"
 	"golang.org/x/net/context"
+	"google.golang.org/grpc"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -50,11 +48,8 @@ func run() (interface{}, error) {
 	var (
 		app = kingpin.New("flex", "Flex volume plugin for K8s")
 
-		debug = app.Flag("debug", "turn on debug logging").Bool()
-		//targetAddr = app.Flag("server", "hostport of the target spiffe server").Default("spiffe.kube-system.svc.cluster.local:3443").String()
-		//certPath   = app.Flag("cert-file", "path to client certificate file").Default(filepath.Join(flexDir, constants.AdminCertFilename)).String()
-		//keyPath    = app.Flag("key-file", "path to client private key file").Default(filepath.Join(flexDir, constants.AdminKeyFilename)).String()
-		//caPath     = app.Flag("ca-file", "path to client certificate authority cert file").Default(filepath.Join(flexDir, constants.AdminCertCAFilename)).String()
+		debug      = app.Flag("debug", "turn on debug logging").Bool()
+		socketPath = app.Flag("socket", "path to unix socket").Default(constants.DefaultUnixSocketPath).String()
 
 		cinit     = app.Command("init", "init")
 		cinitArgs = cinit.Arg("args", "init arguments").String()
@@ -85,24 +80,17 @@ func run() (interface{}, error) {
 		identity.InitLoggerCLI()
 	}
 
-	/*
-		keyPair, err := getCreds(*certPath, *keyPath, *caPath, "", "")
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-	*/
-
-	var client *api.Client
-	/*
-		client, err := api.NewClientFromConfig(api.ClientConfig{
-			TLSKey:     keyPair.KeyPEM,
-			TLSCert:    keyPair.CertPEM,
-			TLSCA:      keyPair.CAPEM,
-			TargetAddr: *targetAddr,
-		})
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}*/
+	conn, err := grpc.Dial("localhost:0", grpc.WithInsecure(),
+		grpc.WithDialer(func(addr string, _ time.Duration) (net.Conn, error) {
+			return net.Dial("unix", *socketPath)
+		}))
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	client, err := localapi.NewClient(conn)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
@@ -132,58 +120,4 @@ func run() (interface{}, error) {
 	}
 
 	return nil, trace.BadParameter("unsupported command: %v", cmd)
-}
-
-func printHeader(val string) {
-	fmt.Printf("\n[%v]\n%v\n", val, strings.Repeat("-", len(val)+2))
-}
-
-func ID(s kingpin.Settings) *spiffeID {
-	id := new(spiffeID)
-	s.SetValue(id)
-	return id
-}
-
-type spiffeID identity.ID
-
-func (id *spiffeID) ID() identity.ID {
-	return (identity.ID)(*id)
-}
-
-func (id *spiffeID) Set(val string) error {
-	out, err := identity.ParseID(val)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	*id = spiffeID(*out)
-	return nil
-}
-
-func (id *spiffeID) String() string {
-	return (*identity.ID)(id).String()
-}
-
-func getCreds(certPath, keyPath, caPath, k8sNamespace, k8sSecret string) (*workload.KeyPair, error) {
-	if k8sSecret != "" {
-		log.Debugf("pulling creds from secret %v in %v namespace", k8sSecret, k8sNamespace)
-		return k8s.ReadKeyPairFromSecret(k8sNamespace, k8sSecret)
-	}
-	log.Debugf("pulling creds from local paths cert=%v key=%v ca-cert=%v", certPath, keyPath, caPath)
-
-	certPEM, err := toolbox.ReadPath(certPath)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	keyPEM, err := toolbox.ReadPath(keyPath)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	caPEM, err := toolbox.ReadPath(caPath)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	return &workload.KeyPair{CertPEM: certPEM, KeyPEM: keyPEM, CAPEM: caPEM}, nil
 }

@@ -68,10 +68,28 @@ type Service struct {
 	closed  uint32
 	bundles map[string]*bundleRenewer
 	certs   map[string]*certRenewer
+	context context.Context
 }
 
-// Load recovers service from stored state
-func (s *Service) Load(ctx context.Context) error {
+func (s *Service) setContext(context context.Context) error {
+	s.Lock()
+	defer s.Unlock()
+
+	if context == nil {
+		return trace.BadParameter("missing parameter context")
+	}
+	if s.context != nil {
+		return trace.BadParameter("server is already started")
+	}
+	s.context = context
+	return nil
+}
+
+// Serve recovers service from stored state and starts service
+func (s *Service) Serve(ctx context.Context) error {
+	if err := s.setContext(ctx); err != nil {
+		return trace.Wrap(err)
+	}
 	certs, err := s.Storage.GetCertRequests(ctx)
 	if err != nil {
 		return trace.Wrap(err)
@@ -83,16 +101,18 @@ func (s *Service) Load(ctx context.Context) error {
 	}
 
 	for _, req := range bundles {
-		if err := s.CreateBundleRequest(ctx, req); err != nil {
+		if err := s.createBundleRequest(req); err != nil {
 			return trace.Wrap(err)
 		}
 	}
 
 	for _, req := range certs {
-		if err := s.CreateCertRequest(ctx, req); err != nil {
+		if err := s.createCertRequest(req); err != nil {
 			return trace.Wrap(err)
 		}
 	}
+
+	<-ctx.Done()
 	return nil
 }
 
@@ -117,7 +137,7 @@ func (s *Service) Close() error {
 	return s.Storage.Close()
 }
 
-func (s *Service) deleteBundleRequest(ctx context.Context, id string) error {
+func (s *Service) deleteBundleRequest(id string) error {
 	s.Lock()
 	defer s.Unlock()
 
@@ -131,16 +151,18 @@ func (s *Service) deleteBundleRequest(ctx context.Context, id string) error {
 	return nil
 }
 
-func (s *Service) createBundleRequest(ctx context.Context, req BundleRequest) error {
+func (s *Service) createBundleRequest(req BundleRequest) error {
 	s.Lock()
 	defer s.Unlock()
-	id := req.LocalID()
+	id := req.ID
 
 	if _, ok := s.bundles[id]; ok {
 		return trace.AlreadyExists("bundle request %v already exists", id)
 	}
 
-	renewerContext, cancel := context.WithCancel(ctx)
+	log.Infof("createBundleRenewer %v", req)
+
+	renewerContext, cancel := context.WithCancel(s.context)
 	writeBundle := func(ctx context.Context, auths workload.Authorities, bundle *workload.TrustedRootBundle) error {
 		if err := toolbox.RemoveAllInDir(req.TargetDir); err != nil {
 			return trace.Wrap(err)
@@ -164,7 +186,9 @@ func (s *Service) createBundleRequest(ctx context.Context, req BundleRequest) er
 
 	go func() {
 		if err := renewer.Start(renewerContext); err != nil {
-			log.Error(trace.DebugReport(err))
+			if err != context.Canceled {
+				log.Error(trace.DebugReport(err))
+			}
 		}
 	}()
 
@@ -176,7 +200,7 @@ func (s *Service) createBundleRequest(ctx context.Context, req BundleRequest) er
 	return nil
 }
 
-func (s *Service) deleteCertRequest(ctx context.Context, id string) error {
+func (s *Service) deleteCertRequest(id string) error {
 	s.Lock()
 	defer s.Unlock()
 
@@ -190,16 +214,18 @@ func (s *Service) deleteCertRequest(ctx context.Context, id string) error {
 	return nil
 }
 
-func (s *Service) createCertRequest(ctx context.Context, req CertRequest) error {
+func (s *Service) createCertRequest(req CertRequest) error {
 	s.Lock()
 	defer s.Unlock()
-	id := req.LocalID()
+	id := req.ID
 
 	if _, ok := s.certs[id]; ok {
 		return trace.AlreadyExists("bundle request %v already exists", id)
 	}
 
-	renewerContext, cancel := context.WithCancel(ctx)
+	log.Infof("createBundleRenewer %v", req)
+
+	renewerContext, cancel := context.WithCancel(s.context)
 
 	rw, err := NewCertReadWriter(CertReadWriterConfig{
 		KeyPath:  req.KeyPath,
@@ -215,7 +241,7 @@ func (s *Service) createCertRequest(ctx context.Context, req CertRequest) error 
 		}),
 		Template: workload.CertificateRequestTemplate{
 			CertAuthorityID: req.CertAuthorityID,
-			ID:              req.ID,
+			ID:              req.Identity,
 			Subject: pkix.Name{
 				CommonName: req.CommonName,
 			},
@@ -231,7 +257,9 @@ func (s *Service) createCertRequest(ctx context.Context, req CertRequest) error 
 
 	go func() {
 		if err := renewer.Start(renewerContext); err != nil {
-			log.Error(trace.DebugReport(err))
+			if err != context.Canceled {
+				log.Error(trace.DebugReport(err))
+			}
 		}
 	}()
 
@@ -245,14 +273,15 @@ func (s *Service) createCertRequest(ctx context.Context, req CertRequest) error 
 
 // CreateBundleRequest creates request to renew certficate bundles in local directory
 func (s *Service) CreateBundleRequest(ctx context.Context, r BundleRequest) error {
+	log.Debugf("CreateBundleRequest(%#v)", r)
 	if err := r.Check(); err != nil {
 		return trace.Wrap(err)
 	}
-	if err := s.createBundleRequest(ctx, r); err != nil {
+	if err := s.createBundleRequest(r); err != nil {
 		return trace.Wrap(err)
 	}
 	if err := s.Storage.CreateBundleRequest(ctx, r); err != nil {
-		s.deleteBundleRequest(ctx, r.LocalID())
+		s.deleteBundleRequest(r.ID)
 		return trace.Wrap(err)
 	}
 	return nil
@@ -260,42 +289,43 @@ func (s *Service) CreateBundleRequest(ctx context.Context, r BundleRequest) erro
 
 // CreateCertRequest creates request to sign renew certificates in local directory
 func (s *Service) CreateCertRequest(ctx context.Context, r CertRequest) error {
+	log.Debugf("CreateCertRequest(%#v)", r)
 	if err := r.Check(); err != nil {
 		return trace.Wrap(err)
 	}
 	if err := r.Check(); err != nil {
 		return trace.Wrap(err)
 	}
-	if err := s.createCertRequest(ctx, r); err != nil {
+	if err := s.createCertRequest(r); err != nil {
 		return trace.Wrap(err)
 	}
 	if err := s.Storage.CreateCertRequest(ctx, r); err != nil {
-		s.deleteCertRequest(ctx, r.LocalID())
+		s.deleteCertRequest(r.ID)
 		return trace.Wrap(err)
 	}
 	return nil
 }
 
 // DeleteBundleRequest deletes BundleRequest
-func (s *Service) DeleteBundleRequest(ctx context.Context, targetDir string) error {
-	if targetDir == "" {
-		return trace.BadParameter("missing parameter targetDir")
+func (s *Service) DeleteBundleRequest(ctx context.Context, id string) error {
+	if id == "" {
+		return trace.BadParameter("missing parameter ID")
 	}
-	if err := s.deleteBundleRequest(ctx, LocalBundleRequestID(targetDir)); err != nil {
+	if err := s.deleteBundleRequest(id); err != nil {
 		return trace.Wrap(err)
 	}
-	return trace.Wrap(s.Storage.DeleteBundleRequest(ctx, targetDir))
+	return trace.Wrap(s.Storage.DeleteBundleRequest(ctx, id))
 }
 
 // DeleteCertRequest deletes certificate renewal request
-func (s *Service) DeleteCertRequest(ctx context.Context, certPath string) error {
-	if certPath == "" {
-		return trace.BadParameter("missing parameter certPath")
+func (s *Service) DeleteCertRequest(ctx context.Context, id string) error {
+	if id == "" {
+		return trace.BadParameter("missing parameter id")
 	}
-	if err := s.deleteCertRequest(ctx, LocalCertRequestID(certPath)); err != nil {
+	if err := s.deleteCertRequest(id); err != nil {
 		return trace.Wrap(err)
 	}
-	return trace.Wrap(s.Storage.DeleteCertRequest(ctx, certPath))
+	return trace.Wrap(s.Storage.DeleteCertRequest(ctx, id))
 }
 
 // GetCertRequests returns a list of cert requests

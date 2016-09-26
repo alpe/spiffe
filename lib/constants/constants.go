@@ -31,6 +31,12 @@ const (
 	// DefaultStateDir is a default state directory for local state
 	DefaultStateDir = "/var/lib/spiffe"
 
+	// DefaultLocalDBName is a default name of local DB
+	DefaultLocalDBName = "local.db"
+
+	// DefaultUnixSocketPath is a default name for unix socket
+	DefaultUnixSocketPath = "/var/run/spiffe.socket"
+
 	// ComponentSPIFFE is a name of the service
 	ComponentSPIFFE = "spiffe"
 
@@ -66,6 +72,9 @@ const (
 
 	// DefalutPrivateDirMask is for private directories
 	DefaultPrivateDirMask os.FileMode = 0700
+
+	// DefalutSharedDirMask is for shared directories
+	DefaultSharedDirMask os.FileMode = 0755
 
 	// AdminKeyFilename is a filename of admin's certificate private key
 	AdminKeyFilename = "admin.pem"

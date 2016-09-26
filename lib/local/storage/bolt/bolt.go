@@ -162,7 +162,7 @@ func (b *Bolt) CreateBundleRequest(ctx context.Context, req local.BundleRequest)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	key := req.LocalID()
+	key := req.ID
 	return b.db.Update(func(tx *bolt.Tx) error {
 		bkt, err := upsertBucket(tx, bundlesBucket)
 		if err != nil {
@@ -181,7 +181,7 @@ func (b *Bolt) CreateCertRequest(ctx context.Context, req local.CertRequest) err
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	key := req.LocalID()
+	key := req.ID
 	return b.db.Update(func(tx *bolt.Tx) error {
 		bkt, err := upsertBucket(tx, certsBucket)
 		if err != nil {
@@ -195,8 +195,7 @@ func (b *Bolt) CreateCertRequest(ctx context.Context, req local.CertRequest) err
 	})
 }
 
-func (b *Bolt) DeleteBundleRequest(ctx context.Context, targetDir string) error {
-	id := local.LocalBundleRequestID(targetDir)
+func (b *Bolt) DeleteBundleRequest(ctx context.Context, id string) error {
 	return b.db.Update(func(tx *bolt.Tx) error {
 		bkt, err := getBucket(tx, bundlesBucket)
 		if err != nil {
@@ -209,8 +208,7 @@ func (b *Bolt) DeleteBundleRequest(ctx context.Context, targetDir string) error 
 	})
 }
 
-func (b *Bolt) DeleteCertRequest(ctx context.Context, certPath string) error {
-	id := local.LocalCertRequestID(certPath)
+func (b *Bolt) DeleteCertRequest(ctx context.Context, id string) error {
 	return b.db.Update(func(tx *bolt.Tx) error {
 		bkt, err := getBucket(tx, certsBucket)
 		if err != nil {

@@ -19,7 +19,6 @@ package local
 
 import (
 	"io"
-	"strings"
 	"time"
 
 	"github.com/spiffe/spiffe/lib/identity"
@@ -35,9 +34,9 @@ type Renewer interface {
 	// CreateCertRequest creates request to sign renew certificates in local directory
 	CreateCertRequest(ctx context.Context, r CertRequest) error
 	// DeleteBundleRequest deletes BundleRequest
-	DeleteBundleRequest(ctx context.Context, targetDir string) error
+	DeleteBundleRequest(ctx context.Context, id string) error
 	// DeleteCertRequest deletes certificate renewal request
-	DeleteCertRequest(ctx context.Context, targetDir string) error
+	DeleteCertRequest(ctx context.Context, id string) error
 	// GetCertRequests returns a list of cert requests
 	GetCertRequests(ctx context.Context) ([]CertRequest, error)
 	// GetBundleRequests returns a list of bundle requests
@@ -48,6 +47,8 @@ type Renewer interface {
 
 // BundleRequest requests to export bundle ID to particular directory
 type BundleRequest struct {
+	// ID is a unique request ID
+	ID string `json:"id" yaml:"id"`
 	// BundleID is a certificate bundle ID
 	BundleID string `json:"bundleID" yaml:"bundleID"`
 	// TargetDir is a target directory where to put the bundle contents
@@ -55,6 +56,9 @@ type BundleRequest struct {
 }
 
 func (b *BundleRequest) Check() error {
+	if b.ID == "" {
+		return trace.BadParameter("no request ID specified")
+	}
 	if b.BundleID == "" {
 		return trace.BadParameter("no bundle ID specified")
 	}
@@ -64,25 +68,17 @@ func (b *BundleRequest) Check() error {
 	return nil
 }
 
-// LocalID computes ID from bundle request based on the target directory
-func (s *BundleRequest) LocalID() string {
-	return LocalBundleRequestID(s.TargetDir)
-}
-
-// LocalBundleRequestID computes ID based on the target directory
-func LocalBundleRequestID(targetDir string) string {
-	return strings.Replace(targetDir, "/", "_", -1)
-}
-
 // CertRequest is a request to get a private key and certificate signed by cert authority
 type CertRequest struct {
+	// ID is a unique request ID
+	ID string `json:"id"`
 	// CertAuthorityID is ID of the certificate authority
 	CertAuthorityID string `json:"certAuthorityID" yaml:"certAuthorityID"`
-	// ID is identity to generate
-	ID identity.ID `json:"id" ya1ml:"id"`
+	// Identity is identity to generate
+	Identity identity.ID `json:"identity" yaml:"identity"`
 	// CommonName is a common name to produce
 	CommonName string `json:"commonName" yaml:"commonName"`
-	// TTL is certificate TTL
+	// TTL is certificate TTLxo
 	TTL time.Duration `json:"ttl" yaml:"ttl"`
 	// KeyPath is a key path of the certificate
 	KeyPath string `json:"keyPath" yaml:"keyPath"`
@@ -92,21 +88,14 @@ type CertRequest struct {
 	CAPath string `json:"caPath" yaml:"caPath"`
 }
 
-// LocalID computes ID from the target CertPath
-func (s *CertRequest) LocalID() string {
-	return LocalCertRequestID(s.CertPath)
-}
-
-// LocalCertRequestID creates ID from target certficate path
-func LocalCertRequestID(certPath string) string {
-	return strings.Replace(certPath, "/", "_", -1)
-}
-
 func (s *CertRequest) Check() error {
+	if s.ID == "" {
+		return trace.BadParameter("no request ID specified")
+	}
 	if s.CertAuthorityID == "" {
 		return trace.BadParameter("missing parameter cert authoirity ID")
 	}
-	if err := s.ID.Check(); err != nil {
+	if err := s.Identity.Check(); err != nil {
 		return trace.Wrap(err)
 	}
 	if s.CommonName == "" {

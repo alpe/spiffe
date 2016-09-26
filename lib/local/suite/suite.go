@@ -47,8 +47,9 @@ func (s *LocalSuite) CertRequestsCRUD(c *C) {
 	targetDir := c.MkDir()
 
 	req := local.CertRequest{
+		ID:              targetDir,
 		CertAuthorityID: ca.ID,
-		ID:              wsuite.BobID,
+		Identity:        wsuite.BobID,
 		CommonName:      "example.com",
 		TTL:             time.Minute,
 		CertPath:        filepath.Join(targetDir, "cert.pem"),
@@ -62,7 +63,7 @@ func (s *LocalSuite) CertRequestsCRUD(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(out, DeepEquals, []local.CertRequest{req})
 
-	err = s.R.DeleteCertRequest(ctx, req.CertPath)
+	err = s.R.DeleteCertRequest(ctx, req.ID)
 	c.Assert(err, IsNil)
 
 	out, err = s.R.GetCertRequests(ctx)
@@ -86,6 +87,7 @@ func (s *LocalSuite) BundleRequestsCRUD(c *C) {
 	targetDir := c.MkDir()
 
 	req := local.BundleRequest{
+		ID:        targetDir,
 		BundleID:  bundle.ID,
 		TargetDir: targetDir,
 	}
@@ -96,7 +98,7 @@ func (s *LocalSuite) BundleRequestsCRUD(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(out, DeepEquals, []local.BundleRequest{req})
 
-	err = s.R.DeleteBundleRequest(ctx, req.TargetDir)
+	err = s.R.DeleteBundleRequest(ctx, req.ID)
 	c.Assert(err, IsNil)
 
 	out, err = s.R.GetBundleRequests(ctx)

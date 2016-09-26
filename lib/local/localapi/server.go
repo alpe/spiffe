@@ -94,8 +94,9 @@ func (s *Server) DeleteBundleRequest(ctx context.Context, id *ID) (*empty.Empty,
 
 func certRequestToGRPC(in local.CertRequest) *CertRequest {
 	return &CertRequest{
+		ID:              in.ID,
 		CertAuthorityID: in.CertAuthorityID,
-		ID:              in.ID.String(),
+		Identity:        in.Identity.String(),
 		CommonName:      in.CommonName,
 		TTL:             int64(in.TTL),
 		KeyPath:         in.KeyPath,
@@ -105,13 +106,14 @@ func certRequestToGRPC(in local.CertRequest) *CertRequest {
 }
 
 func certRequestFromGRPC(in *CertRequest) (*local.CertRequest, error) {
-	id, err := identity.ParseID(in.ID)
+	id, err := identity.ParseID(in.Identity)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return &local.CertRequest{
+		ID:              in.ID,
 		CertAuthorityID: in.CertAuthorityID,
-		ID:              *id,
+		Identity:        *id,
 		CommonName:      in.CommonName,
 		TTL:             time.Duration(in.TTL),
 		KeyPath:         in.KeyPath,
@@ -142,6 +144,7 @@ func certRequestsFromGRPC(in []*CertRequest) ([]local.CertRequest, error) {
 
 func bundleRequestToGRPC(in local.BundleRequest) *BundleRequest {
 	return &BundleRequest{
+		ID:        in.ID,
 		BundleID:  in.BundleID,
 		TargetDir: in.TargetDir,
 	}
@@ -149,6 +152,7 @@ func bundleRequestToGRPC(in local.BundleRequest) *BundleRequest {
 
 func bundleRequestFromGRPC(in *BundleRequest) *local.BundleRequest {
 	return &local.BundleRequest{
+		ID:        in.ID,
 		BundleID:  in.BundleID,
 		TargetDir: in.TargetDir,
 	}

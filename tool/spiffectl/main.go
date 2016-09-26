@@ -91,6 +91,10 @@ func run() error {
 
 		ccaDelete   = cca.Command("rm", "remove certificate authority")
 		ccaDeleteID = ccaDelete.Flag("id", "unique CA id").Required().String()
+
+		cnode           = app.Command("node", "start node local service")
+		cnodeStatePath  = cnode.Flag("state", "path to database with state").Default(filepath.Join(constants.DefaultStateDir, constants.DefaultLocalDBName)).String()
+		cnodeSocketPath = cnode.Flag("socket", "path to unix socket").Default(constants.DefaultUnixSocketPath).String()
 	)
 
 	cmd, err := app.Parse(os.Args[1:])
@@ -130,6 +134,8 @@ func run() error {
 	}()
 
 	switch cmd {
+	case cnode.FullCommand():
+		return nodeServe(ctx, client, *cnodeStatePath, *cnodeSocketPath)
 	case cbundlesList.FullCommand():
 		return bundlesList(ctx, client)
 	case cbundlesCreate.FullCommand():

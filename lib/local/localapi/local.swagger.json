@@ -154,6 +154,10 @@
           "type": "string",
           "format": "string"
         },
+        "ID": {
+          "type": "string",
+          "format": "string"
+        },
         "TargetDir": {
           "type": "string",
           "format": "string"
@@ -197,7 +201,12 @@
         "ID": {
           "type": "string",
           "format": "string",
-          "title": "ID is identity to generate"
+          "title": "ID is ID"
+        },
+        "Identity": {
+          "type": "string",
+          "format": "string",
+          "title": "Identity is identity to generate"
         },
         "KeyPath": {
           "type": "string",

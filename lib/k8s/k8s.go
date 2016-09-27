@@ -111,6 +111,7 @@ func ReadKeyPairFromSecret(namespace string, name string) (*workload.KeyPair, er
 func (s *Service) Serve(ctx context.Context) error {
 	err := s.installCertAuthority(ctx)
 	if err != nil {
+		log.Error(trace.DebugReport(err))
 		return trace.Wrap(err)
 	}
 	<-ctx.Done()
@@ -279,8 +280,8 @@ const (
 	DomainName = "svc.cluster.local"
 	// SecretID is ID of the secret generated
 	SecretID = "spiffe-creds"
-	// SystemNamespace is ID of the system namespace
-	SystemNamespace = "SystemNamespace"
+	// SystemNamespace is ID of the K8s system namespace
+	SystemNamespace = "kube-system"
 )
 
 func convertError(err error) error {
@@ -356,7 +357,7 @@ func (s *secretRW) ReadKeyPair() (*workload.KeyPair, error) {
 	if err != nil {
 		return nil, convertError(err)
 	}
-	return &workload.KeyPair{CertPEM: secret.Data[s.certName], KeyPEM: secret.Data[s.keyName], CAPEM: secret.Data["ca-cert"]}, nil
+	return &workload.KeyPair{CertPEM: secret.Data[s.certName], KeyPEM: secret.Data[s.keyName], CAPEM: secret.Data[s.caName]}, nil
 }
 
 func (s *secretRW) WriteKeyPair(keyPair workload.KeyPair) error {

@@ -35,7 +35,7 @@ const (
 	DefaultLocalDBName = "local.db"
 
 	// DefaultUnixSocketPath is a default name for unix socket
-	DefaultUnixSocketPath = "/var/run/spiffe.socket"
+	DefaultUnixSocketPath = "/var/run/spiffe/spiffe.socket"
 
 	// ComponentSPIFFE is a name of the service
 	ComponentSPIFFE = "spiffe"

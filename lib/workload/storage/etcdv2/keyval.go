@@ -500,6 +500,7 @@ func (b *Backend) UpsertSignPermission(ctx context.Context, s workload.SignPermi
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	log.Infof("key: %v", key)
 	val, err := marshal(s)
 	if err != nil {
 		return trace.Wrap(err)

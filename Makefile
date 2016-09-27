@@ -114,6 +114,7 @@ dev-spiffe-destroy:
 	- kubectl --namespace=kube-system delete configmaps/etcd-secrets
 	- kubectl --namespace=kube-system delete configmaps/spiffe
 	- kubectl --namespace=kube-system delete services/spiffe
+	- kubectl --namespace=kube-system delete secrets/spiffe-creds
 
 .PHONY: dev-destroy
 dev-destroy: dev-spiffe-destroy

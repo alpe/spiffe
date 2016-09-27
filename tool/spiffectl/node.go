@@ -41,6 +41,10 @@ func nodeServe(ctx context.Context, service workload.Service, statePath, socketP
 		return trace.Wrap(err)
 	}
 
+	if err := renewerService.Serve(ctx); err != nil {
+		return trace.Wrap(err)
+	}
+
 	server := grpc.NewServer()
 	localapi.RegisterRenewerServer(server, renewerServer)
 
@@ -52,5 +56,7 @@ func nodeServe(ctx context.Context, service workload.Service, statePath, socketP
 	}()
 
 	fmt.Printf("now listening on %v\n", socketPath)
-	return renewerService.Serve(ctx)
+
+	<-ctx.Done()
+	return nil
 }

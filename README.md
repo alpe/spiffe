@@ -126,3 +126,56 @@ You can combine trusted root bundles out of externeal certificates and certifica
 ```bash
 spiffectl bundle create --replace --id=web --dir=/etc/ssl/certs --ca=test --ca=existing
 ```
+
+### Kubernetes integration
+
+In K8s mode, SPIFFE is capable of mounting secrets directly to the Pods via special flex volume.
+
+When launched in k8s mode, SPIFFE certificate authority service creates a special CA for signing in-cluster certificates and
+creates special secret file with credentials for in-cluster agents `spiffe-creds`, updating it from time to time.
+
+`spiffectl` can pull credentials in-cluster directly from the secrets by using `--k8s-secret` and `--k8s-namespace`
+flags, and watches for credentials updates
+
+### Installation
+
+To install SPIFFE with K8s mode against a working cluster, run the following command:
+
+```
+make dev-create
+```
+
+Now restart Kubelets on nodes, so they can load `spiffe.io/flex` volume plugin.
+
+See [resource definitions](build.assets/k8s/resources/spiffe.yaml) for more details.
+
+### Architecture
+
+![Architecture](docs/images/spiffe-k8s.png)
+
+Every K8s node runs a trusted Node CA - special daemon responsible for managing and rotating certificates
+on every K8s node. Node CA agent communicates with certificate authority service to get certificates.
+
+Flex volume plugin `spiffe.io/flex` communicates with `Node CA` using unix socket file, adding and removing mounts.
+
+### Example
+
+The following flex volume is supported by the flex plugin:
+
+```yaml
+          flexVolume:
+            driver: "spiffe.io/flex"
+            options:
+              type: "cert"
+              commonName: "nginx.default.svc.cluster.local"
+              key:  nginx-key.pem
+              ttl:  10h
+              cert: nginx-cert.pem
+              certAuthorityCert: ca-cert.pem
+```
+
+It will generate private key `nginx-key.pem`, certificate `nginx-cert.pem` and write certificate of `ca-cert.pem` to the target volume. It will also take care of the rotation, rotating the certificate every 10 hours.
+
+See [nginx.yaml](build.assets/k8s/resources/nginx.yaml) for more details.
+
+

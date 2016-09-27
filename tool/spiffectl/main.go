@@ -69,7 +69,7 @@ func run() error {
 		ccaCreateReplace    = ccaCreate.Flag("replace", "replace CA if it exists").Bool()
 		ccaCreateID         = ccaCreate.Flag("id", "unique CA id").Required().String()
 		ccaCreateCommonName = ccaCreate.Flag("common-name", "CA common name").Required().String()
-		ccaCreateOrg        = ccaCreate.Flag("org", "CA org name").Required().String()
+		ccaCreateOrg        = ccaCreate.Flag("org", "CA org name").String()
 		ccaCreateTTL        = ccaCreate.Flag("ttl", "CA TTL").Required().Duration()
 
 		ccaImport         = cca.Command("import", "import certificate authority (CA) from existing keypair")

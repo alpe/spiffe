@@ -1,0 +1,84 @@
+syntax = "proto3";
+package localapi;
+
+import "github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis/google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+
+message BundleRequest {
+    string ID = 1;
+    string BundleID = 2;
+    string TargetDir = 3;
+}
+
+// CertRequest is a request to get a private key and certificate signed by cert authority
+message CertRequest {
+	// ID is ID
+	string ID = 1;    
+	// CertAuthorityID is ID of the certificate authority
+	string CertAuthorityID  = 2;
+	// Identity is identity to generate
+	string Identity = 3;
+	// CommonName is a common name to produce
+	string CommonName = 4;
+	// TTL is certificate TTL
+	int64 TTL = 5;
+	// KeyPath is a key path of the certificate
+	string KeyPath = 6;
+	// CertPath is a path of the generated certificate
+	string CertPath = 7;
+	// CAPath is a path of the certificate authority cert  that signed this cert
+	string CAPath = 8;
+}
+
+message BundleRequests {
+    repeated BundleRequest BundleRequests = 1;
+}
+
+message CertRequests {
+    repeated CertRequest CertRequests = 1;
+}
+
+message ID {
+    string ID = 1;
+}
+
+service Renewer {
+    rpc CreateCertRequest(CertRequest) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+			post: "/v1/local/certrequests"
+			body: "*"
+		};
+    }
+
+    rpc GetCertRequests(google.protobuf.Empty) returns (CertRequests) {
+        option (google.api.http) = {
+			get: "/v1/local/certrequests"
+		};
+    }   
+    
+    rpc DeleteCertRequest(ID) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+			delete: "/v1/local/certrequests/{ID}"
+		};
+    }
+
+    
+    rpc CreateBundleRequest(BundleRequest) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+			post: "/v1/local/bundlerequests"
+			body: "*"
+		};
+    }
+
+    rpc GetBundleRequests(google.protobuf.Empty) returns (BundleRequests) {
+        option (google.api.http) = {
+			get: "/v1/local/bundlerequests"
+		};
+    }   
+    
+    rpc DeleteBundleRequest(ID) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+			delete: "/v1/local/bundlerequests/{ID}"
+		};
+    }
+}

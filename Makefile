@@ -3,7 +3,8 @@ GOGO_PROTO_TAG ?= v0.3
 GRPC_GATEWAY_TAG ?= v1.1.0
 BUILDBOX_TAG := spifee-buildbox:0.0.1
 PLATFORM := linux-x86_64
-GRPC_DIRS := lib/workload/api
+GRPC_WORKLOAD := lib/workload/api
+GRPC_LOCAL := lib/local/localapi
 BUILDDIR ?= .
 IMAGE := spiffe
 TAG := 0.0.1
@@ -23,12 +24,13 @@ version:
 # install installs binary
 .PHONY: install
 install: 
-	go install github.com/spiffe/spiffe/tool/spiffe github.com/spiffe/spiffe/tool/spiffectl
+	go install github.com/spiffe/spiffe/tool/spiffe github.com/spiffe/spiffe/tool/spiffectl github.com/spiffe/spiffe/tool/flex
 
 .PHONY: build
 build:
 	go build -o $(BUILDDIR)/spiffe github.com/spiffe/spiffe/tool/spiffe
 	go build -o $(BUILDDIR)/spiffectl github.com/spiffe/spiffe/tool/spiffectl
+	go build -o $(BUILDDIR)/flex github.com/spiffe/spiffe/tool/flex
 
 # run runs local dev server
 .PHONY: run
@@ -74,6 +76,8 @@ containers:
 	mkdir -p $(TMPDIR)/build/opt/spiffe
 	docker run -v $(shell pwd):/go/src/github.com/spiffe/spiffe -v $(TMPDIR)/build/opt/spiffe:/out $(BUILDBOX_TAG) make -C /go/src/github.com/spiffe/spiffe build BUILDDIR=/out
 	cp build.assets/k8s/docker/spiffe.dockerfile $(TMPDIR)
+	cp build.assets/install-flex.sh $(TMPDIR)/build/opt/spiffe
+	chmod +x $(TMPDIR)/build/opt/spiffe/install-flex.sh
 	cd $(TMPDIR) && docker build -t $(IMAGE):$(TAG) --file spiffe.dockerfile .
 	rm -rf $(TMPDIR)
 
@@ -105,10 +109,12 @@ dev-nginx-destroy:
 
 .PHONY: dev-spiffe-destroy
 dev-spiffe-destroy:
+	- kubectl --namespace=kube-system delete daemonsets/spiffe-node
 	- kubectl --namespace=kube-system delete deployments/spiffe
 	- kubectl --namespace=kube-system delete configmaps/etcd-secrets
 	- kubectl --namespace=kube-system delete configmaps/spiffe
 	- kubectl --namespace=kube-system delete services/spiffe
+	- kubectl --namespace=kube-system delete secrets/spiffe-creds
 
 .PHONY: dev-destroy
 dev-destroy: dev-spiffe-destroy
@@ -126,11 +132,22 @@ grpc: buildbox
 buildbox-grpc:
 # standard GRPC output
 	echo $$PROTO_INCLUDE
-	cd $(GRPC_DIRS) && protoc -I=.:$$PROTO_INCLUDE \
+	cd $(GRPC_WORKLOAD) && protoc -I=.:$$PROTO_INCLUDE \
       --gofast_out=plugins=grpc:.\
     *.proto
 # HTTP JSON gateway adapter
-	cd $(GRPC_DIRS) && protoc -I=.:$$PROTO_INCLUDE \
+	cd $(GRPC_WORKLOAD) && protoc -I=.:$$PROTO_INCLUDE \
+      --grpc-gateway_out=logtostderr=true:. \
+      --swagger_out=logtostderr=true:. \
+      *.proto
+
+# standard GRPC output
+	echo $$PROTO_INCLUDE
+	cd $(GRPC_LOCAL) && protoc -I=.:$$PROTO_INCLUDE \
+      --gofast_out=plugins=grpc:.\
+    *.proto
+# HTTP JSON gateway adapter
+	cd $(GRPC_LOCAL) && protoc -I=.:$$PROTO_INCLUDE \
       --grpc-gateway_out=logtostderr=true:. \
       --swagger_out=logtostderr=true:. \
       *.proto	

@@ -69,7 +69,7 @@ func run() error {
 		ccaCreateReplace    = ccaCreate.Flag("replace", "replace CA if it exists").Bool()
 		ccaCreateID         = ccaCreate.Flag("id", "unique CA id").Required().String()
 		ccaCreateCommonName = ccaCreate.Flag("common-name", "CA common name").Required().String()
-		ccaCreateOrg        = ccaCreate.Flag("org", "CA org name").Required().String()
+		ccaCreateOrg        = ccaCreate.Flag("org", "CA org name").String()
 		ccaCreateTTL        = ccaCreate.Flag("ttl", "CA TTL").Required().Duration()
 
 		ccaImport         = cca.Command("import", "import certificate authority (CA) from existing keypair")
@@ -86,10 +86,15 @@ func run() error {
 		ccaSignCertAuthorityID = ccaSign.Flag("ca", "CA id to sign this certificate with").Required().String()
 		ccaSignKeyPath         = ccaSign.Flag("out-key-file", "path to write key file").Required().String()
 		ccaSignCertPath        = ccaSign.Flag("out-cert-file", "path to write cert file").Required().String()
+		ccaSignCACertPath      = ccaSign.Flag("out-ca-cert-file", "path to write CA cert file").String()
 		ccaSignHooks           = ccaSign.Flag("exec", "optional command to execute when bundle updates").Strings()
 
 		ccaDelete   = cca.Command("rm", "remove certificate authority")
 		ccaDeleteID = ccaDelete.Flag("id", "unique CA id").Required().String()
+
+		cnode           = app.Command("node", "start node local service")
+		cnodeStatePath  = cnode.Flag("state", "path to database with state").Default(filepath.Join(constants.DefaultStateDir, constants.DefaultLocalDBName)).String()
+		cnodeSocketPath = cnode.Flag("socket", "path to unix socket").Default(constants.DefaultUnixSocketPath).String()
 	)
 
 	cmd, err := app.Parse(os.Args[1:])
@@ -129,6 +134,8 @@ func run() error {
 	}()
 
 	switch cmd {
+	case cnode.FullCommand():
+		return nodeServe(ctx, client, *cnodeStatePath, *cnodeSocketPath)
 	case cbundlesList.FullCommand():
 		return bundlesList(ctx, client)
 	case cbundlesCreate.FullCommand():
@@ -144,7 +151,7 @@ func run() error {
 	case ccaImport.FullCommand():
 		return certAuthorityImport(ctx, client, *ccaImportID, *ccaImportKeyPath, *ccaImportCertPath, *ccaImportReplace)
 	case ccaSign.FullCommand():
-		return certAuthoritySign(ctx, client, ccaSignID.ID(), *ccaSignCertAuthorityID, *ccaSignKeyPath, *ccaSignCertPath, *ccaSignCommonName, *ccaSignTTL, *ccaSignRenew, *ccaSignHooks)
+		return certAuthoritySign(ctx, client, ccaSignID.ID(), *ccaSignCertAuthorityID, *ccaSignKeyPath, *ccaSignCertPath, *ccaSignCACertPath, *ccaSignCommonName, *ccaSignTTL, *ccaSignRenew, *ccaSignHooks)
 	case ccaDelete.FullCommand():
 		return certAuthorityDelete(ctx, client, *ccaDeleteID)
 	}

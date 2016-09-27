@@ -7,6 +7,7 @@ import (
 
 	"github.com/spiffe/spiffe/lib/constants"
 	"github.com/spiffe/spiffe/lib/identity"
+	"github.com/spiffe/spiffe/lib/local"
 	"github.com/spiffe/spiffe/lib/toolbox"
 	"github.com/spiffe/spiffe/lib/workload"
 
@@ -16,8 +17,16 @@ import (
 	"golang.org/x/net/context"
 )
 
-func certAuthoritySign(ctx context.Context, service workload.Service, id identity.ID, certAuthorityID, keyPath, certPath, commonName string, ttl time.Duration, watchUpdates bool, hooks []string) error {
+func certAuthoritySign(ctx context.Context, service workload.Service, id identity.ID, certAuthorityID, keyPath, certPath, caPath, commonName string, ttl time.Duration, watchUpdates bool, hooks []string) error {
 	eventsC := make(chan *workload.KeyPair, 10)
+	rw, err := local.NewCertReadWriter(local.CertReadWriterConfig{
+		KeyPath:  keyPath,
+		CertPath: certPath,
+		CAPath:   caPath,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	renewer, err := workload.NewCertRenewer(workload.CertRenewerConfig{
 		Entry: log.WithFields(log.Fields{
 			trace.Component: constants.ComponentCLI,
@@ -30,36 +39,10 @@ func certAuthoritySign(ctx context.Context, service workload.Service, id identit
 			},
 			TTL: ttl,
 		},
-		ReadKeyPair: func() (*workload.KeyPair, error) {
-			keyData, err := toolbox.ReadPath(keyPath)
-			if err != nil {
-				return nil, trace.Wrap(err)
-			}
-			if _, err := workload.ParsePrivateKeyPEM(keyData); err != nil {
-				log.Debugf("failed to parse %v key, will overwrite", keyPath)
-				return nil, trace.NotFound("ignoring bad key")
-			}
-			certData, err := toolbox.ReadPath(certPath)
-			if err != nil {
-				return nil, trace.Wrap(err)
-			}
-			if _, err := workload.ParseCertificatePEM(certData); err != nil {
-				log.Debugf("failed to parse %v cert, will overwrite", certPath)
-				return nil, trace.NotFound("ignoring bad certificate")
-			}
-			return &workload.KeyPair{KeyPEM: keyData, CertPEM: certData}, nil
-		},
-		WriteKeyPair: func(keyPair workload.KeyPair) error {
-			if err := toolbox.WritePath(keyPath, keyPair.KeyPEM, constants.DefaultPrivateFileMask); err != nil {
-				return trace.Wrap(err)
-			}
-			if err := toolbox.WritePath(certPath, keyPair.CertPEM, constants.DefaultPrivateFileMask); err != nil {
-				return trace.Wrap(err)
-			}
-			return nil
-		},
-		Service: service,
-		EventsC: eventsC,
+		ReadKeyPair:  rw.ReadKeyPair,
+		WriteKeyPair: rw.WriteKeyPair,
+		Service:      service,
+		EventsC:      eventsC,
 	})
 	if err != nil {
 		return trace.Wrap(err)

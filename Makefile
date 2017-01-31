@@ -157,7 +157,6 @@ buildbox-grpc:
       --swagger_out=logtostderr=true:. \
       *.proto
 
-
 # This is to clean up flymake_ stuff hanging around as a result of Emacs-Flymake
 .PHONY: remove-temp-files
 remove-temp-files:

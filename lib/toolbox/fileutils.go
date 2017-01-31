@@ -46,6 +46,13 @@ func Mkdir(targetDirectory string, mode os.FileMode) error {
 	}
 	return nil
 }
+func MkdirAll(targetDirectory string, mode os.FileMode) error {
+	err := os.MkdirAll(targetDirectory, mode)
+	if err != nil {
+		return trace.ConvertSystemError(err)
+	}
+	return nil
+}
 
 func NormalizePath(path string) (string, error) {
 	s, err := filepath.Abs(path)
@@ -57,6 +64,14 @@ func NormalizePath(path string) (string, error) {
 		return "", trace.ConvertSystemError(err)
 	}
 	return abs, nil
+}
+
+func Remove(path string) error {
+	err := os.Remove(path)
+	if err != nil {
+		return trace.ConvertSystemError(err)
+	}
+	return nil
 }
 
 func WritePath(path string, data []byte, perm os.FileMode) error {
@@ -88,4 +103,12 @@ func StatDir(path string) (os.FileInfo, error) {
 		return nil, trace.BadParameter("%v is not a directory", path)
 	}
 	return fi, nil
+}
+
+func ReadDir(dir string) ([]os.FileInfo, error) {
+	files, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return nil, trace.ConvertSystemError(err)
+	}
+	return files, nil
 }

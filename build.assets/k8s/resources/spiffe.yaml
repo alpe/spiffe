@@ -1,3 +1,78 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: spiffe
+  namespace: kube-system
+  labels:
+    app: spiffe
+spec:
+  ports:
+  - name: grpc
+    port: 3443
+  selector:
+    app: spiffe
+---
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  labels:
+    app: spiffe-node
+  name: spiffe-node
+  namespace: kube-system
+spec:
+  template:
+    metadata:
+      labels:
+        app: spiffe-node
+      annotations:
+        pod.alpha.kubernetes.io/init-containers: '[
+          {
+            "name": "install",
+            "image": "apiserver:5000/spiffe:latest",
+            "command": ["/opt/spiffe/install-flex.sh"],
+            "volumeMounts": [
+                {
+                    "name": "flex-plugin",
+                    "mountPath": "/var/lib/spiffe/flex"
+                },
+                {
+                    "name": "spiffe-creds",
+                    "mountPath": "/var/lib/spiffe/creds"
+                }
+            ]
+          }
+        ]'        
+    spec:
+      containers:
+      - image: apiserver:5000/spiffe:latest
+        name: spiffe-node
+        imagePullPolicy: Always
+        command: ["/opt/spiffe/spiffectl", "node", "--socket=/var/run/spiffe/spiffe.socket", "--k8s-namespace=kube-system", "--k8s-secret=spiffe-creds", "--server=spiffe.kube-system.svc.cluster.local:3443", "--debug"]
+        securityContext:
+          privileged: true        
+        volumeMounts:
+          - name: flex-plugin
+            mountPath: /var/lib/spiffe/flex
+          - name: spiffe-creds
+            mountPath: /var/lib/spiffe/creds
+          - name: spiffe-run
+            mountPath: /var/run/spiffe
+          - name: kubelet-pods
+            mountPath: /var/lib/kubelet-pods
+      volumes:
+        - name: flex-plugin
+          hostPath:
+            path: /usr/libexec/kubernetes/kubelet-plugins/volume/exec
+        - name: kubelet-pods
+          hostPath:
+            path: /var/lib/kubelet/pods
+        - name: spiffe-run
+          hostPath:
+            path: /var/run/spiffe
+        - name: spiffe-creds
+          sec/et:
+            secretName: spiffe-creds
+---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -90,17 +165,3 @@ data:
         tlskeyfile: /var/lib/etcd-secrets/proxy1-key.pem
         tlscertfile: /var/lib/etcd-secrets/proxy1.pem
         tlscafile: /var/lib/etcd-secrets/ca.pem
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: spiffe
-  namespace: kube-system
-  labels:
-    app: spiffe
-spec:
-  ports:
-  - name: grpc
-    port: 3443
-  selector:
-    app: spiffe

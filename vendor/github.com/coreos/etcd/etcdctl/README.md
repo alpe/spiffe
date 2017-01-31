@@ -6,6 +6,24 @@ Make sure to set environment variable `ETCDCTL_API=3`. For etcdctl v2, please ch
 
 ## Commands
 
+### VERSION
+
+Prints the version of etcdctl
+
+#### Return value
+
+##### Simple reply
+
+- Prints etcd version and API version
+
+#### Examples
+
+```bash
+./etcdctl version
+# etcdctl version: 3.1.0-alpha.0+git
+# API version: 3.1
+```
+
 ### PUT [options] \<key\> \<value\>
 
 PUT assigns the specified value with the specified key. If key already holds a value, it is overwritten.
@@ -72,7 +90,11 @@ GET gets the key or a range of keys [key, range_end) if `range-end` is given.
 
 - print-value-only -- print only value when used with write-out=simple
 
-TODO: add consistency, from, prefix
+- consistency -- Linearizable(l) or Serializable(s)
+
+- from-key -- Get keys that are greater than or equal to the given key using byte compare
+
+- keys-only -- Get only the keys
 
 #### Return value
 
@@ -93,9 +115,29 @@ The protobuf encoding of the [RPC message][etcdrpc] for a key-value pair for eac
 #### Examples
 
 ```bash
+./etcdctl put foo bar
+# OK
+./etcdctl put foo1 bar1
+# OK
+./etcdctl put foo2 bar2
+# OK
+./etcdctl put foo3 bar3
+# OK
 ./etcdctl get foo
 # foo
 # bar
+./etcdctl get --from-key foo1
+# foo1
+# bar1
+# foo2
+# bar2
+# foo3
+# bar3
+./etcdctl get foo1 foo3
+# foo1
+# bar1
+# foo2
+# bar2
 ```
 
 #### Notes
@@ -111,7 +153,9 @@ Removes the specified key or range of keys [key, range_end) if `range-end` is gi
 
 - prefix -- delete keys by matching prefix
 
-TODO: --from
+- prev-kv -- return deleted key-value pairs
+
+- from-key -- delete keys that are greater than or equal to the given key using byte compare
 
 #### Return value
 
@@ -137,6 +181,40 @@ The protobuf encoding of the DeleteRange [RPC response][etcdrpc].
 ./etcdctl del foo
 # 1
 ./etcdctl get foo
+```
+
+```bash
+./etcdctl put key val
+# OK
+./etcdctl del --prev-kv key
+# 1
+# key
+# val
+./etcdctl get key
+```
+
+```bash
+./etcdctl put a 123
+# OK
+./etcdctl put b 456
+# OK
+./etcdctl put z 789
+# OK
+./etcdctl del --from-key a
+# 3
+./etcdctl get --from-key a
+```
+
+```bash
+./etcdctl put zoo val
+# OK
+./etcdctl put zoo1 val1
+# OK
+./etcdctl put zoo2 val2
+# OK
+./etcdctl del --prefix zoo
+# 3
+./etcdctl get zoo2
 ```
 
 ### TXN [options]
@@ -328,9 +406,13 @@ LEASE REVOKE destroys a given lease, deleting all attached keys.
 ```
 
 
-### LEASE TIMETOLIVE \<leaseID\>
+### LEASE TIMETOLIVE \<leaseID\> [options]
 
 LEASE TIMETOLIVE retrieves the lease information with the given lease ID.
+
+#### Options
+
+- keys -- Get keys attached to this lease
 
 #### Return value
 
@@ -388,7 +470,7 @@ LEASE KEEP-ALIVE periodically refreshes a lease so it does not expire.
 
 MEMBER provides commands for managing etcd cluster membership.
 
-### MEMBER ADD \<memberName\>
+### MEMBER ADD \<memberName\> [options]
 
 MEMBER ADD introduces a new member into the etcd cluster as a new peer.
 
@@ -410,7 +492,7 @@ MEMBER ADD introduces a new member into the etcd cluster as a new peer.
 ```
 
 
-### MEMBER UPDATE \<memberID\>
+### MEMBER UPDATE \<memberID\> [options]
 
 MEMBER UPDATE sets the peer URLs for an existing member in the etcd cluster.
 
@@ -617,11 +699,15 @@ The lease length of a leader defaults to 60 seconds. If a candidate is abnormall
 progress may be delayed by up to 60 seconds.
 
 
-### COMPACTION \<revision\>
+### COMPACTION [options] \<revision\>
 
 COMPACTION discards all etcd event history prior to a given revision. Since etcd uses a multiversion concurrency control
 model, it preserves all key updates as event history. When the event history up to some revision is no longer needed,
 all superseded keys may be compacted away to reclaim storage space in the etcd backend database.
+
+#### Options
+
+- physical -- 'true' to wait for compaction to physically remove all old revisions
 
 #### Return value
 
@@ -733,6 +819,8 @@ The snapshot restore options closely resemble to those used in the `etcd` comman
 - initial-advertise-peer-urls -- List of peer URLs for the member being restored.
 
 - name -- Human-readable name for the etcd cluster member being restored.
+
+- skip-hash-check -- Ignore snapshot integrity hash value (required if copied from data directory)
 
 #### Return value
 
@@ -848,39 +936,9 @@ The provided transformer should read until EOF and flush the stdout before exiti
 # finished transforming keys
 ```
 
-### AUTH \<enable or disable\>
+### ROLE \<subcommand\>
 
-`auth enable` activates authentication on an etcd cluster and `auth disable` deactivates. When authentication is enabled, etcd checks all requests for appropriate authorization.
-
-#### Return value
-
-##### Simple reply
-
-- `Authentication Enabled`. Exit code is zero.
-
-- Error string if AUTH failed. Exit code is non-zero.
-
-#### Examples
-
-```bash
-./etcdctl user add root
-# Password of root:#type password for root
-# Type password of root again for confirmation:#re-type password for root
-# User root created
-./etcdctl user grant-role root root
-# Role root is granted to user root
-./etcdctl user get root
-# User: root
-# Roles: root
-./etcdctl role add root
-# Role root created
-./etcdctl role get root
-# Role root
-# KV Read:
-# KV Write:
-./etcdctl auth enable
-# Authentication Enabled
-```
+ROLE is used to specify differnt roles which can be assigned to etcd user(s).
 
 ### ROLE ADD \<role name\>
 
@@ -899,25 +957,6 @@ The provided transformer should read until EOF and flush the stdout before exiti
 ```bash
 ./etcdctl --user=root:123 role add myrole
 # Role myrole created
-```
-
-### ROLE DELETE \<role name\>
-
-`role delete` deletes a role.
-
-#### Return value
-
-##### Simple reply
-
-- `Role <role name> deleted`. Exit code is zero.
-
-- Error string if failed. Exit code is non-zero.
-
-#### Examples
-
-```bash
-./etcdctl --user=root:123 role delete myrole
-# Role myrole deleted
 ```
 
 ### ROLE GET \<role name\>
@@ -943,9 +982,13 @@ The provided transformer should read until EOF and flush the stdout before exiti
 # foo
 ```
 
-### ROLE GRANT-PERMISSION \<role name\> \<permission type\> \<key\> [endkey]
+### ROLE GRANT-PERMISSION [options] \<role name\> \<permission type\> \<key\> [endkey]
 
 `role grant-permission` grants a key to a role.
+
+#### Options
+
+- prefix -- grant a prefix permission
 
 #### Return value
 
@@ -981,9 +1024,36 @@ The provided transformer should read until EOF and flush the stdout before exiti
 # Permission of key foo is revoked from role myrole
 ```
 
-### USER ADD \<user name\>
+### ROLE DELETE \<role name\>
+
+`role delete` deletes a role.
+
+#### Return value
+
+##### Simple reply
+
+- `Role <role name> deleted`. Exit code is zero.
+
+- Error string if failed. Exit code is non-zero.
+
+#### Examples
+
+```bash
+./etcdctl --user=root:123 role delete myrole
+# Role myrole deleted
+```
+
+### USER \<subcommand\>
+
+USER provides commands for managing users of etcd.
+
+### USER ADD \<user name\> [options]
 
 `user add` creates a user.
+
+#### Options
+
+- interactive -- Read password from stdin instead of interactive terminal
 
 #### Return value
 
@@ -998,32 +1068,17 @@ The provided transformer should read until EOF and flush the stdout before exiti
 ```bash
 ./etcdctl --user=root:123 user add myuser
 # Password of myuser: #type password for my user
-# Type password of myuser again for confirmation:#re-type password for my user 
+# Type password of myuser again for confirmation:#re-type password for my user
 # User myuser created
 ```
 
-### USER DELETE \<user name\>
-
-`user delete` deletes a user.
-
-#### Return value
-
-##### Simple reply
-
-- `User <user name> deleted`. Exit code is zero.
-
-- Error string if failed. Exit code is non-zero.
-
-#### Examples
-
-```bash
-./etcdctl --user=root:123 user delete myuser
-# User myuser deleted
-```
-
-### USER GET \<user name\>
+### USER GET \<user name\> [options]
 
 `user get` lists detailed user information.
+
+#### Options
+
+- detail -- Show permissions of roles granted to the user
 
 #### Return value
 
@@ -1041,7 +1096,7 @@ The provided transformer should read until EOF and flush the stdout before exiti
 # Roles:
 ```
 
-### USER PASSWD \<user name\>
+### USER PASSWD \<user name\> [options]
 
 `user passwd` changes a user's password.
 
@@ -1062,7 +1117,7 @@ The provided transformer should read until EOF and flush the stdout before exiti
 ```bash
 ./etcdctl --user=root:123 user passwd myuser
 # Password of myuser: #type new password for my user
-# Type password of myuser again for confirmation: #re-type the new password for my user 
+# Type password of myuser again for confirmation: #re-type the new password for my user
 # Password updated
 ```
 
@@ -1104,11 +1159,118 @@ The provided transformer should read until EOF and flush the stdout before exiti
 # Role roleA is revoked from user userA
 ```
 
+### USER DELETE \<user name\>
+
+`user delete` deletes a user.
+
+#### Return value
+
+##### Simple reply
+
+- `User <user name> deleted`. Exit code is zero.
+
+- Error string if failed. Exit code is non-zero.
+
+#### Examples
+
+```bash
+./etcdctl --user=root:123 user delete myuser
+# User myuser deleted
+```
+
+### AUTH \<enable or disable\>
+
+`auth enable` activates authentication on an etcd cluster and `auth disable` deactivates. When authentication is enabled, etcd checks all requests for appropriate authorization.
+
+#### Return value
+
+##### Simple reply
+
+- `Authentication Enabled`. Exit code is zero.
+
+- Error string if AUTH failed. Exit code is non-zero.
+
+#### Examples
+
+```bash
+./etcdctl user add root
+# Password of root:#type password for root
+# Type password of root again for confirmation:#re-type password for root
+# User root created
+./etcdctl user grant-role root root
+# Role root is granted to user root
+./etcdctl user get root
+# User: root
+# Roles: root
+./etcdctl role add root
+# Role root created
+./etcdctl role get root
+# Role root
+# KV Read:
+# KV Write:
+./etcdctl auth enable
+# Authentication Enabled
+```
+
+## ALARM \<subcommand\>
+
+Provides alarm related commands
+
+### ALARM DISARM
+
+`alarm disarm` Disarms all alarms
+
+#### Return value
+
+##### Simple reply
+
+- `alarm:<alarm type>` if alarm is present
+
+- `` if alarm is not present
+
+#### Examples
+
+```bash
+./etcdctl alarm disarm
+```
+
+If NOSPACE alarm is present:
+
+```bash
+./etcdctl alarm disarm
+# alarm:NOSPACE
+```
+
+### ALARM LIST
+
+`alarm list` Lists all alarms
+
+#### Return value
+
+##### Simple reply
+
+- `alarm:<alarm type>` if alarm is present
+
+- `` if alarm is not present
+
+#### Examples
+
+```bash
+./etcdctl alarm list
+```
+
+If NOSPACE alarm is present:
+
+```bash
+./etcdctl alarm list
+# alarm:NOSPACE
+```
+
 ## Notes
 
 - JSON encoding for keys and values uses base64 since they are byte strings.
 
-
+- 
 [etcdrpc]: ../etcdserver/etcdserverpb/rpc.proto
 [storagerpc]: ../mvcc/mvccpb/kv.proto
 [member_list_rpc]: ../etcdserver/etcdserverpb/rpc.proto#L493-L497

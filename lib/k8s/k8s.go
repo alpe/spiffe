@@ -18,22 +18,21 @@ limitations under the License.
 // K8s integration service watches for K8s namespaces, if new namespace
 // is created, the service does the following:
 //
-// * Sets up TLS Certificate Authority for this namespace
+// * Sets up TLS Certificate Authority for k8s cluster
 // * Adds special identity that is authorized to sign certificates for this
-// certificate authority (*.kube-system.svc.cluster.local) matching subdomain
+// certificate authority (*.*.svc.cluster.local) matching subdomain
 // assigned for this namespace
+//
 // * Creates (and mantains) secret in this namespace that contains certificate
 //   and private key authenticated as SPIFFE identity assigned to the cluster
 //   and certificate authority certificate to be trusted
 //
-// SPIFFE node can use GetKeyPair
 package k8s
 
 import (
 	"crypto/x509/pkix"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/spiffe/spiffe/lib/constants"
 	"github.com/spiffe/spiffe/lib/identity"
@@ -45,9 +44,7 @@ import (
 	"k8s.io/client-go/1.4/kubernetes"
 	"k8s.io/client-go/1.4/pkg/api"
 	"k8s.io/client-go/1.4/pkg/api/errors"
-	"k8s.io/client-go/1.4/pkg/api/meta"
 	"k8s.io/client-go/1.4/pkg/api/v1"
-	"k8s.io/client-go/1.4/pkg/watch"
 	"k8s.io/client-go/1.4/rest"
 )
 
@@ -66,7 +63,6 @@ func NewService(cfg ServiceConfig) (*Service, error) {
 		client:        client,
 		ServiceConfig: cfg,
 		Entry:         log.WithFields(log.Fields{trace.Component: constants.ComponentSPIFFE}),
-		renewers:      make(map[string]*renewerBundle),
 	}, nil
 }
 
@@ -77,7 +73,6 @@ type Service struct {
 	client *kubernetes.Clientset
 	ServiceConfig
 	*log.Entry
-	renewers map[string]*renewerBundle
 }
 
 // GetClient returns new K8s in-cluster client
@@ -101,123 +96,64 @@ func ReadKeyPairFromSecret(namespace string, name string) (*workload.KeyPair, er
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	secretRW := &secretRW{namespace: namespace, secretName: name, client: client}
+	secretRW, err := newSecretRW(secretRWConfig{
+		namespace:  namespace,
+		secretName: name,
+		client:     client,
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	return secretRW.ReadKeyPair()
 }
 
 // Serve is a blocking call that launches the service
-func (s *Service) Serve(ctx context.Context) {
-	for {
-		err := s.watchNamespaces(ctx)
-		if err != nil {
-			log.Error(trace.DebugReport(err))
-		} else {
-			s.Infof("context is closing")
-		}
-		select {
-		case <-ctx.Done():
-			s.Infof("context is closing")
-		case <-time.After(constants.DefaultReconnectPeriod):
-			continue
-		}
-	}
-}
-
-func (s *Service) deleteCertAuthority(ctx context.Context, namespace kubeNamespace) error {
-	return s.Service.DeleteCertAuthority(ctx, namespace.CertAuthorityID())
-}
-
-func (s *Service) deleteRenewer(ctx context.Context, namespace kubeNamespace) error {
-	s.Lock()
-	defer s.Unlock()
-	r, ok := s.renewers[string(namespace)]
-	if !ok {
-		s.Infof("%v renewer not found")
-		return nil
-	}
-	r.cancelFunc()
-	go func() {
-		err := r.secretRW.DeleteKeyPair()
-		if err != nil {
-			log.Error(trace.DebugReport(err))
-		}
-	}()
-	delete(s.renewers, string(namespace))
-	return nil
-}
-
-func (s *Service) startRenewer(ctx context.Context, namespace kubeNamespace) error {
-	s.Lock()
-	defer s.Unlock()
-	if _, ok := s.renewers[string(namespace)]; ok {
-		s.Infof("%v renewer already exists", namespace)
-		return nil
-	}
-	s.Infof("creating new renewer %v", namespace)
-	r, err := s.newRenewer(ctx, namespace)
+func (s *Service) Serve(ctx context.Context) error {
+	err := s.installCertAuthority(ctx)
 	if err != nil {
+		log.Error(trace.DebugReport(err))
 		return trace.Wrap(err)
 	}
-	s.renewers[string(namespace)] = r
+	<-ctx.Done()
 	return nil
 }
 
-func (s *Service) installCertAuthority(ctx context.Context, namespace kubeNamespace) error {
+func (s *Service) installCertAuthority(ctx context.Context) error {
 	s.Debugf("installCertAuthority")
-	err := s.upsertCertAuthority(ctx, namespace)
+	err := s.upsertCertAuthority(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = s.upsertPermissions(ctx, namespace)
+	err = s.upsertPermissions(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = s.upsertBundle(ctx, namespace)
+	err = s.upsertBundle(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = s.startRenewer(ctx, namespace)
-	return trace.Wrap(err)
+	err = s.startCertRenewer(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
 }
 
-func (s *Service) uninstallCertAuthority(ctx context.Context, namespace kubeNamespace) error {
-	err := s.deleteCertAuthority(ctx, namespace)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	err = s.deletePermissions(ctx, namespace)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	err = s.deleteBundle(ctx, namespace)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	err = s.deleteRenewer(ctx, namespace)
-	return trace.Wrap(err)
-}
-
-func (s *Service) upsertBundle(ctx context.Context, namespace kubeNamespace) error {
+func (s *Service) upsertBundle(ctx context.Context) error {
 	s.Debugf("upsertBundle")
-	err := s.Service.UpsertTrustedRootBundle(ctx, namespace.Bundle())
+	err := s.Service.UpsertTrustedRootBundle(ctx, Bundle())
 	return trace.Wrap(err)
 }
 
-func (s *Service) deleteBundle(ctx context.Context, namespace kubeNamespace) error {
-	s.Debugf("deleteBundle")
-	err := s.Service.DeleteTrustedRootBundle(ctx, namespace.BundleID())
-	return trace.Wrap(err)
-}
-
-func (s *Service) upsertPermissions(ctx context.Context, namespace kubeNamespace) error {
+func (s *Service) upsertPermissions(ctx context.Context) error {
 	s.Debugf("upsertPermissions")
-	for _, p := range namespace.Permissions() {
+	for _, p := range Permissions() {
 		if err := s.Service.UpsertPermission(ctx, p); err != nil {
 			return trace.Wrap(err)
 		}
 	}
 
-	for _, sp := range namespace.SignPermissions() {
+	for _, sp := range SignPermissions() {
 		err := s.Service.UpsertSignPermission(ctx, sp)
 		s.Debugf("upsertSignPermission %v, err: %v", sp, err)
 		if err != nil {
@@ -227,29 +163,9 @@ func (s *Service) upsertPermissions(ctx context.Context, namespace kubeNamespace
 	return nil
 }
 
-func (s *Service) deletePermissions(ctx context.Context, namespace kubeNamespace) error {
-	for _, p := range namespace.Permissions() {
-		if err := s.Service.DeletePermission(ctx, p); err != nil {
-			if !trace.IsNotFound(err) {
-				return trace.Wrap(err)
-			}
-
-		}
-	}
-
-	for _, sp := range namespace.SignPermissions() {
-		if err := s.Service.DeleteSignPermission(ctx, sp); err != nil {
-			if !trace.IsNotFound(err) {
-				return trace.Wrap(err)
-			}
-		}
-	}
-	return nil
-}
-
-func (s *Service) upsertCertAuthority(ctx context.Context, namespace kubeNamespace) error {
-	s.Infof("upsertCertAuthority(namespace=%v)", namespace)
-	_, err := s.Service.GetCertAuthorityCert(ctx, namespace.CertAuthorityID())
+func (s *Service) upsertCertAuthority(ctx context.Context) error {
+	s.Infof("upsertCertAuthority")
+	_, err := s.Service.GetCertAuthorityCert(ctx, CertAuthorityID)
 	if err == nil {
 		return nil
 	}
@@ -257,14 +173,14 @@ func (s *Service) upsertCertAuthority(ctx context.Context, namespace kubeNamespa
 		return trace.Wrap(err)
 	}
 	keyPEM, certPEM, err := identity.GenerateSelfSignedCA(pkix.Name{
-		CommonName:   namespace.CommonName(),
-		Organization: []string{namespace.Org()},
+		CommonName:   CommonName,
+		Organization: []string{Org},
 	}, nil, constants.DefaultCATTL)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	certAuthority := workload.CertAuthority{
-		ID:         namespace.CertAuthorityID(),
+		ID:         CertAuthorityID,
 		PrivateKey: keyPEM,
 		Cert:       certPEM,
 	}
@@ -278,61 +194,14 @@ func (s *Service) upsertCertAuthority(ctx context.Context, namespace kubeNamespa
 	return nil
 }
 
-func (s *Service) watchNamespaces(ctx context.Context) error {
-	namespaces, err := s.client.Core().Namespaces().List(api.ListOptions{})
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	for _, namespace := range namespaces.Items {
-		err = s.installCertAuthority(ctx, kubeNamespace(namespace.Name))
-		if err != nil {
-			return trace.Wrap(err)
-		}
-	}
-
-	watcher, err := s.client.Core().Namespaces().Watch(api.ListOptions{})
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	defer watcher.Stop()
-
-	accessor := meta.NewAccessor()
-
-	eventsC := watcher.ResultChan()
-	for {
-		select {
-		case event := <-eventsC:
-			if event.Type == watch.Error {
-				s.Warningf("unsupported event: %#v", event)
-			}
-			namespace, err := accessor.Name(event.Object)
-			if err != nil {
-				return trace.Wrap(err)
-			}
-			if event.Type == watch.Added || event.Type == watch.Modified {
-				if err := s.installCertAuthority(ctx, kubeNamespace(namespace)); err != nil {
-					return trace.Wrap(err)
-				}
-			}
-			if event.Type == watch.Deleted {
-				if err := s.uninstallCertAuthority(ctx, kubeNamespace(namespace)); err != nil {
-					return trace.Wrap(err)
-				}
-			}
-		case <-ctx.Done():
-			s.Infof("context is closing")
-			return nil
-		}
-	}
-}
-
-func (s *Service) newRenewer(ctx context.Context, namespace kubeNamespace) (*renewerBundle, error) {
-	renewerContext, cancelFunc := context.WithCancel(ctx)
-
-	secretRW := &secretRW{
+func (s *Service) startCertRenewer(ctx context.Context) error {
+	secretRW, err := newSecretRW(secretRWConfig{
 		client:     s.client,
-		secretName: namespace.SecretID(),
-		namespace:  string(namespace),
+		secretName: SecretID,
+		namespace:  SystemNamespace,
+	})
+	if err != nil {
+		return trace.Wrap(err)
 	}
 
 	renewer, err := workload.NewCertRenewer(workload.CertRenewerConfig{
@@ -341,9 +210,9 @@ func (s *Service) newRenewer(ctx context.Context, namespace kubeNamespace) (*ren
 		}),
 		Template: workload.CertificateRequestTemplate{
 			CertAuthorityID: constants.AdminOrg,
-			ID:              namespace.ID(),
+			ID:              SystemID(),
 			Subject: pkix.Name{
-				CommonName: namespace.CommonName(),
+				CommonName: CommonName,
 			},
 			TTL: constants.DefaultLocalCertTTL,
 		},
@@ -352,44 +221,36 @@ func (s *Service) newRenewer(ctx context.Context, namespace kubeNamespace) (*ren
 		Service:      s.Service,
 	})
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return trace.Wrap(err)
 	}
 	go func() {
-		err := renewer.Start(renewerContext)
+		err := renewer.Start(ctx)
 		if err != nil {
 			log.Error(trace.DebugReport(err))
 		}
 	}()
-	return &renewerBundle{renewer: renewer, cancelFunc: cancelFunc, secretRW: secretRW}, nil
+	return nil
 }
 
-type renewerBundle struct {
-	renewer    *workload.CertRenewer
-	cancelFunc context.CancelFunc
-	secretRW   *secretRW
-}
-
-// kubeNamespace is a wrapper around namespace that helps to name things
-// related to this namespace
-type kubeNamespace string
-
-func (n kubeNamespace) Bundle() workload.TrustedRootBundle {
+func Bundle() workload.TrustedRootBundle {
 	return workload.TrustedRootBundle{
-		ID: n.BundleID(),
+		ID: BundleID,
 		CertAuthorityIDs: []string{
-			n.CertAuthorityID(),
+			CertAuthorityID,
 		},
 	}
 }
 
-func (n kubeNamespace) SignPermissions() []workload.SignPermission {
+// SignPermissions is a list of SignPermissions assigned to system ID
+func SignPermissions() []workload.SignPermission {
 	return []workload.SignPermission{
-		{ID: n.ID(), CertAuthorityID: n.CertAuthorityID(), Org: n.CommonName(), MaxTTL: constants.DefaultMaxCertTTL},
+		{ID: SystemID(), CertAuthorityID: CertAuthorityID, MaxTTL: constants.DefaultMaxCertTTL},
 	}
 }
 
-func (n kubeNamespace) Permissions() []workload.Permission {
-	id := n.ID()
+// Permissoins is a list of permissions assigned by system ID
+func Permissions() []workload.Permission {
+	id := SystemID()
 	return []workload.Permission{
 		// authorities
 		{ID: id, Action: workload.ActionReadPublic, Collection: workload.CollectionCertAuthorities},
@@ -402,33 +263,26 @@ func (n kubeNamespace) Permissions() []workload.Permission {
 	}
 }
 
-func (n kubeNamespace) BundleID() string {
-	return fmt.Sprintf("%v.svc.cluster.local", n)
+func SystemID() identity.ID {
+	return identity.MustParseID(fmt.Sprintf("urn:spiffe:%v", DomainName))
 }
 
-func (n kubeNamespace) Org() string {
-	return "svc.cluster.local"
-}
-
-func (n kubeNamespace) CommonName() string {
-	return fmt.Sprintf("*.%v.svc.cluster.local", n)
-}
-
-func (n kubeNamespace) ID() identity.ID {
-	return identity.MustParseID(fmt.Sprintf("urn:spiffe:%v", n.DomainName()))
-}
-
-func (n kubeNamespace) CertAuthorityID() string {
-	return fmt.Sprintf("%v.svc.cluster.local", n)
-}
-
-func (n kubeNamespace) DomainName() string {
-	return fmt.Sprintf("%v.svc.cluster.local", n)
-}
-
-func (n kubeNamespace) SecretID() string {
-	return "spiffe-creds"
-}
+const (
+	// BundleID managed by this K8s integration
+	BundleID = "svc.cluster.local"
+	// CertAuthorityID is ID of the certificate authority managed by this K8s integration
+	CertAuthorityID = "svc.cluster.local"
+	// Org managed by K8s integration
+	Org = "svc.cluster.local"
+	// CommonName is a common name pattern allowed to be signed by K8s CA
+	CommonName = "*.svc.cluster.local"
+	// DomainName is a name of this Domain
+	DomainName = "svc.cluster.local"
+	// SecretID is ID of the secret generated
+	SecretID = "spiffe-creds"
+	// SystemNamespace is ID of the K8s system namespace
+	SystemNamespace = "kube-system"
+)
 
 func convertError(err error) error {
 	if err == nil {
@@ -449,10 +303,48 @@ func convertError(err error) error {
 	return trace.BadParameter(err.Error())
 }
 
-type secretRW struct {
+func newSecretRW(cfg secretRWConfig) (*secretRW, error) {
+	if err := cfg.CheckAndSetDefaults(); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &secretRW{
+		secretRWConfig: cfg,
+	}, nil
+}
+
+type secretRWConfig struct {
 	namespace  string
 	secretName string
 	client     *kubernetes.Clientset
+	keyName    string
+	certName   string
+	caName     string
+}
+
+func (s *secretRWConfig) CheckAndSetDefaults() error {
+	if s.namespace == "" {
+		return trace.BadParameter("missing parameter namespace")
+	}
+	if s.secretName == "" {
+		return trace.BadParameter("missing parameter secretName")
+	}
+	if s.client == nil {
+		return trace.BadParameter("missing parameter client")
+	}
+	if s.caName == "" {
+		s.caName = constants.AdminCertCAFilename
+	}
+	if s.certName == "" {
+		s.certName = constants.AdminCertFilename
+	}
+	if s.keyName == "" {
+		s.keyName = constants.AdminKeyFilename
+	}
+	return nil
+}
+
+type secretRW struct {
+	secretRWConfig
 }
 
 func (s *secretRW) DeleteKeyPair() error {
@@ -465,15 +357,15 @@ func (s *secretRW) ReadKeyPair() (*workload.KeyPair, error) {
 	if err != nil {
 		return nil, convertError(err)
 	}
-	return &workload.KeyPair{CertPEM: secret.Data["cert"], KeyPEM: secret.Data["key"], CAPEM: secret.Data["ca-cert"]}, nil
+	return &workload.KeyPair{CertPEM: secret.Data[s.certName], KeyPEM: secret.Data[s.keyName], CAPEM: secret.Data[s.caName]}, nil
 }
 
 func (s *secretRW) WriteKeyPair(keyPair workload.KeyPair) error {
 	secret := v1.Secret{
 		Data: map[string][]byte{
-			"cert":    keyPair.CertPEM,
-			"key":     keyPair.KeyPEM,
-			"ca-cert": keyPair.CAPEM,
+			s.certName: keyPair.CertPEM,
+			s.keyName:  keyPair.KeyPEM,
+			s.caName:   keyPair.CAPEM,
 		},
 	}
 	secret.Name = s.secretName

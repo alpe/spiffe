@@ -335,7 +335,7 @@ type Permission struct {
 
 // String returns human-readable permission
 func (p Permission) String() string {
-	return fmt.Sprintf("%v has no permission to %v %v %v", p.ID, p.Action, p.Collection, p.CollectionID)
+	return fmt.Sprintf("Permission(id=%v, action=%v, collection=%v, collectionID=%v)", p.ID, p.Action, p.Collection, p.CollectionID)
 }
 
 // Check checks whether permission is valid
@@ -399,13 +399,10 @@ type SignPermission struct {
 	MaxTTL time.Duration
 }
 
-// String returns human-readable permission
+// String returns sign permission debug info
 func (s SignPermission) String() string {
-	id := fmt.Sprintf("org %v ", s.Org)
-	if s.SignID != nil {
-		id += fmt.Sprintf("%v SPIFFE id %v ", id, s.SignID)
-	}
-	return fmt.Sprintf("%v has no permission to sign %v by %v for %v", s.ID, id, s.CertAuthorityID, s.MaxTTL)
+	return fmt.Sprintf("SignPermission(ID=%v, CertAuthorityID=%v, CommonName=%v, SignID=%v, TTL=%v)",
+		s.ID, s.CertAuthorityID, s.Org, s.SignID, s.MaxTTL)
 }
 
 // Check checks whether sign permission parameters are valid

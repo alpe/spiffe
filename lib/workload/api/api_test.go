@@ -58,6 +58,7 @@ var _ = Suite(&RPCSuite{})
 func (s *RPCSuite) SetUpTest(c *C) {
 	log.SetOutput(os.Stderr)
 	log.SetLevel(log.DebugLevel)
+	trace.SetDebug(true)
 
 	testETCD := os.Getenv(constants.TestETCD)
 

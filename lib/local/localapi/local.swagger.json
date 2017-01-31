@@ -1,0 +1,250 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "local.proto",
+    "version": "version not set"
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/v1/local/bundlerequests": {
+      "get": {
+        "operationId": "GetBundleRequests",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/localapiBundleRequests"
+            }
+          }
+        },
+        "tags": [
+          "Renewer"
+        ]
+      },
+      "post": {
+        "operationId": "CreateBundleRequest",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/protobufEmpty"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/localapiBundleRequest"
+            }
+          }
+        ],
+        "tags": [
+          "Renewer"
+        ]
+      }
+    },
+    "/v1/local/bundlerequests/{ID}": {
+      "delete": {
+        "operationId": "DeleteBundleRequest",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/protobufEmpty"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "ID",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "string"
+          }
+        ],
+        "tags": [
+          "Renewer"
+        ]
+      }
+    },
+    "/v1/local/certrequests": {
+      "get": {
+        "operationId": "GetCertRequests",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/localapiCertRequests"
+            }
+          }
+        },
+        "tags": [
+          "Renewer"
+        ]
+      },
+      "post": {
+        "operationId": "CreateCertRequest",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/protobufEmpty"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/localapiCertRequest"
+            }
+          }
+        ],
+        "tags": [
+          "Renewer"
+        ]
+      }
+    },
+    "/v1/local/certrequests/{ID}": {
+      "delete": {
+        "operationId": "DeleteCertRequest",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/protobufEmpty"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "ID",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "string"
+          }
+        ],
+        "tags": [
+          "Renewer"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "localapiBundleRequest": {
+      "type": "object",
+      "properties": {
+        "BundleID": {
+          "type": "string",
+          "format": "string"
+        },
+        "ID": {
+          "type": "string",
+          "format": "string"
+        },
+        "TargetDir": {
+          "type": "string",
+          "format": "string"
+        }
+      }
+    },
+    "localapiBundleRequests": {
+      "type": "object",
+      "properties": {
+        "BundleRequests": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/localapiBundleRequest"
+          }
+        }
+      }
+    },
+    "localapiCertRequest": {
+      "type": "object",
+      "properties": {
+        "CAPath": {
+          "type": "string",
+          "format": "string",
+          "title": "CAPath is a path of the certificate authority cert  that signed this cert"
+        },
+        "CertAuthorityID": {
+          "type": "string",
+          "format": "string",
+          "title": "CertAuthorityID is ID of the certificate authority"
+        },
+        "CertPath": {
+          "type": "string",
+          "format": "string",
+          "title": "CertPath is a path of the generated certificate"
+        },
+        "CommonName": {
+          "type": "string",
+          "format": "string",
+          "title": "CommonName is a common name to produce"
+        },
+        "ID": {
+          "type": "string",
+          "format": "string",
+          "title": "ID is ID"
+        },
+        "Identity": {
+          "type": "string",
+          "format": "string",
+          "title": "Identity is identity to generate"
+        },
+        "KeyPath": {
+          "type": "string",
+          "format": "string",
+          "title": "KeyPath is a key path of the certificate"
+        },
+        "TTL": {
+          "type": "string",
+          "format": "int64",
+          "title": "TTL is certificate TTL"
+        }
+      },
+      "title": "CertRequest is a request to get a private key and certificate signed by cert authority"
+    },
+    "localapiCertRequests": {
+      "type": "object",
+      "properties": {
+        "CertRequests": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/localapiCertRequest"
+          }
+        }
+      }
+    },
+    "localapiID": {
+      "type": "object",
+      "properties": {
+        "ID": {
+          "type": "string",
+          "format": "string"
+        }
+      }
+    },
+    "protobufEmpty": {
+      "type": "object",
+      "description": "service Foo {\n      rpc Bar(google.protobuf.Empty) returns (google.protobuf.Empty);\n    }\n\nThe JSON representation for `Empty` is empty JSON object `{}`.",
+      "title": "A generic empty message that you can re-use to avoid defining duplicated\nempty messages in your APIs. A typical example is to use it as the request\nor the response type of an API method. For instance:"
+    }
+  }
+}

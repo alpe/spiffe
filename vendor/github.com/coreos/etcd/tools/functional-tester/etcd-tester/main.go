@@ -48,6 +48,7 @@ func main() {
 	schedCases := flag.String("schedule-cases", "", "test case schedule")
 	consistencyCheck := flag.Bool("consistency-check", true, "true to check consistency (revision, hash)")
 	isV2Only := flag.Bool("v2-only", false, "'true' to run V2 only tester.")
+	stresserType := flag.String("stresser", "default", "specify stresser (\"default\" or \"nop\").")
 	flag.Parse()
 
 	eps := strings.Split(*endpointStr, ",")
@@ -63,13 +64,18 @@ func main() {
 		agents[i].datadir = *datadir
 	}
 
+	sConfig := &stressConfig{
+		qps:            *stressQPS,
+		keyLargeSize:   int(*stressKeyLargeSize),
+		keySize:        int(*stressKeySize),
+		keySuffixRange: int(*stressKeySuffixRange),
+		v2:             *isV2Only,
+	}
+
 	c := &cluster{
-		agents:               agents,
-		v2Only:               *isV2Only,
-		stressQPS:            *stressQPS,
-		stressKeyLargeSize:   int(*stressKeyLargeSize),
-		stressKeySize:        int(*stressKeySize),
-		stressKeySuffixRange: int(*stressKeySuffixRange),
+		agents:        agents,
+		v2Only:        *isV2Only,
+		stressBuilder: newStressBuilder(*stresserType, sConfig),
 	}
 
 	if err := c.bootstrap(); err != nil {
@@ -114,10 +120,14 @@ func main() {
 	}
 
 	t := &tester{
-		failures:         schedule,
-		cluster:          c,
-		limit:            *limit,
-		consistencyCheck: *consistencyCheck,
+		failures: schedule,
+		cluster:  c,
+		limit:    *limit,
+		checker:  newNoChecker(),
+	}
+
+	if *consistencyCheck && !c.v2Only {
+		t.checker = newHashChecker(t)
 	}
 
 	sh := statusHandler{status: &t.status}

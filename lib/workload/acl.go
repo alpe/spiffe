@@ -85,7 +85,13 @@ func (a *ACLedService) ProcessCertificateRequest(ctx context.Context, req Certif
 			Org:             csr.Subject.CommonName,
 		})
 		if err != nil {
-			return nil, trace.Wrap(err)
+			// check for specific blank sign permission
+			permission, err = a.Auth.GetSignPermission(ctx, SignPermission{
+				CertAuthorityID: req.CertAuthorityID,
+			})
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
 		}
 	}
 

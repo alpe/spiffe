@@ -75,7 +75,7 @@ func (s *RPCSuite) SetUpTest(c *C) {
 
 	auth, err := NewAuthenticator(s.backend.Backend)
 	c.Assert(err, IsNil)
-	server, err := NewServer(workload.NewACL(s.backend.Backend, auth, s.backend.Clock))
+	server, err := NewServer(workload.NewACLedService(s.backend.Backend, auth, s.backend.Clock))
 	c.Assert(err, IsNil)
 
 	ports, err := identity.GetFreeTCPPorts(1)

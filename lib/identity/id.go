@@ -30,7 +30,8 @@ import (
 // TODO(klizhentas) discuss what subset (or full set) we really support
 // https://tools.ietf.org/html/rfc2141#section-2.2
 // should probably roll proper URN parser before it's too late
-var idRegexp = regexp.MustCompile(`urn:spiffe:([a-zA-Z0-9-\._]+)([[a-zA-Z0-9,-\.:_%]*)`)
+// TODO(jbeda): Do we want to allow slashes in the opaque part?
+var idRegexp = regexp.MustCompile(`urn:spiffe:([a-zA-Z0-9-\._]+)([a-zA-Z0-9,-\.:_%]*)`)
 
 var oidExtensionSubjectAltName = []int{2, 5, 29, 17}
 

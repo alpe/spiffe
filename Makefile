@@ -69,12 +69,17 @@ buildbox:
 # containers builds container with spiffe
 .PHONY: containers
 containers:
-	$(eval TMPDIR := $(shell mktemp -d))
+	mkdir -p _tmp
+	$(eval TMPDIR := $(shell mktemp -d $(CURDIR)/_tmp/temp.XXXXXX))
 	if [ ! -d "$(TMPDIR)" ] ; then \
 		echo "failed to generate temp dir" && exit 255 ;\
 	fi
 	mkdir -p $(TMPDIR)/build/opt/spiffe
-	docker run -v $(shell pwd):/go/src/github.com/spiffe/spiffe -v $(TMPDIR)/build/opt/spiffe:/out $(BUILDBOX_TAG) make -C /go/src/github.com/spiffe/spiffe build BUILDDIR=/out
+	docker run \
+	  -v $(shell pwd):/go/src/github.com/spiffe/spiffe \
+	  -v $(TMPDIR)/build/opt/spiffe:/out \
+		$(BUILDBOX_TAG) \
+		make -C /go/src/github.com/spiffe/spiffe build BUILDDIR=/out
 	cp build.assets/k8s/docker/spiffe.dockerfile $(TMPDIR)
 	cp build.assets/install-flex.sh $(TMPDIR)/build/opt/spiffe
 	chmod +x $(TMPDIR)/build/opt/spiffe/install-flex.sh
@@ -150,7 +155,7 @@ buildbox-grpc:
 	cd $(GRPC_LOCAL) && protoc -I=.:$$PROTO_INCLUDE \
       --grpc-gateway_out=logtostderr=true:. \
       --swagger_out=logtostderr=true:. \
-      *.proto	
+      *.proto
 
 
 # This is to clean up flymake_ stuff hanging around as a result of Emacs-Flymake
@@ -159,6 +164,7 @@ remove-temp-files:
 	@if [ $$USER != vagrant ] ; then \
 		find . -name flymake_* -delete ; \
 	fi
+	@rm -rf _tmp || true
 
 
 PWD := $(shell pwd)

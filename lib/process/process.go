@@ -76,7 +76,7 @@ func (p *Process) startNewServer(ctx context.Context, listener net.Listener, key
 	}
 
 	// creates new server implemenation with Etcd-backed ACL
-	server, err := api.NewServer(workload.NewACL(p.backend, auth, clockwork.NewRealClock()))
+	server, err := api.NewServer(workload.NewACLedService(p.backend, auth, clockwork.NewRealClock()))
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -117,10 +117,14 @@ func (p *Process) restartServer(ctx context.Context, listener net.Listener, keyP
 	}
 	if listener != nil {
 		// close the previous listener to stop the previous server
-		if err := listener.Close(); err != nil {
+		if err = listener.Close(); err != nil {
 			return nil, trace.Wrap(err)
 		}
 	}
+
+	// This loop is subtle.  It will try restarting the server until there is no
+	// error.  This can happen if someone else is listening on that address or the
+	// previous server is taking its time shutting down.
 	listener, err = restartFn()
 	if err == nil {
 		return listener, nil
@@ -200,7 +204,7 @@ func (p *Process) listenAndServe(ctx context.Context) error {
 			p.Debugf("context is closing")
 			if listener != nil {
 				// close the previous listener to stop the previous server
-				if err := listener.Close(); err != nil {
+				if err = listener.Close(); err != nil {
 					return trace.Wrap(err)
 				}
 			}
@@ -214,8 +218,9 @@ func (p *Process) listenAndServe(ctx context.Context) error {
 	}
 }
 
-// initLocalAdminCreds starts new renewer process that will create and rotate certs
-// for local admins
+// initLocalAdminCreds starts new renewer process that will create and rotate
+// certs for local admins.  These get written to disk so that the admin tools
+// can always have good certs ready to go.
 func (p *Process) initLocalAdminCreds(ctx context.Context) error {
 	keyPath := filepath.Join(p.StateDir, constants.AdminKeyFilename)
 	certPath := filepath.Join(p.StateDir, constants.AdminCertFilename)
@@ -268,7 +273,10 @@ func (p *Process) initLocalAdminCreds(ctx context.Context) error {
 	return workload.SetAdminPermissions(ctx, p.localService, p.adminID, constants.DefaultCATTL)
 }
 
-// initLocalService initialises local SPIFFE service using ETCD backend
+// initLocalService initialises local SPIFFE service using ETCD backend.
+//
+// This server isn't ACLed.  We then configure it with a cert authority for the
+// admin namespace if not already configured.
 func (p *Process) initLocalService(ctx context.Context) error {
 	p.localService = workload.NewService(p.backend, nil)
 
@@ -278,7 +286,7 @@ func (p *Process) initLocalService(ctx context.Context) error {
 		if !trace.IsNotFound(err) {
 			return trace.Wrap(err)
 		}
-		log.Infof("setting up Admin cert authority")
+		p.Infof("setting up Admin cert authority")
 		keyPEM, certPEM, err := identity.GenerateSelfSignedCA(pkix.Name{
 			CommonName:   constants.AdminOrg,
 			Organization: []string{constants.AdminOrg},
@@ -315,6 +323,7 @@ func (p *Process) startService(ctx context.Context) error {
 	if err = p.initLocalAdminCreds(ctx); err != nil {
 		return trace.Wrap(err)
 	}
+
 	if p.K8s.Enabled {
 		p.Infof("starting K8s helper goroutine")
 		service, err := k8s.NewService(k8s.ServiceConfig{

@@ -32,20 +32,20 @@ func NewService(collections Collections, clock clockwork.Clock) Service {
 
 // NewACL wraps service into access controller that checks every action
 // against the permissions table
-func NewACL(collections Collections, auth PermissionsReader, clock clockwork.Clock) Service {
-	return &ACL{
+func NewACLedService(collections Collections, auth PermissionsReader, clock clockwork.Clock) Service {
+	return &ACLedService{
 		Auth:    auth,
 		Service: NewService(collections, clock),
 	}
 }
 
 // ACL implements workload interfaces and applies permission checking for them
-type ACL struct {
+type ACLedService struct {
 	Auth    PermissionsReader
 	Service Service
 }
 
-func (a *ACL) checkPermission(ctx context.Context, action, collection, collectionID string) error {
+func (a *ACLedService) checkPermission(ctx context.Context, action, collection, collectionID string) error {
 	// check for "all" permission first, regardless of collectionID
 	// in case if we have blank permission to read all
 	p := Permission{
@@ -64,7 +64,7 @@ func (a *ACL) checkPermission(ctx context.Context, action, collection, collectio
 	return err
 }
 
-func (a *ACL) ProcessCertificateRequest(ctx context.Context, req CertificateRequest) (*CertificateResponse, error) {
+func (a *ACLedService) ProcessCertificateRequest(ctx context.Context, req CertificateRequest) (*CertificateResponse, error) {
 	if err := req.Check(); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -104,7 +104,7 @@ func (a *ACL) ProcessCertificateRequest(ctx context.Context, req CertificateRequ
 
 // CreateCertAuthority updates or inserts certificate authority
 // In case if CA can sign, Private
-func (a *ACL) CreateCertAuthority(ctx context.Context, ca CertAuthority) error {
+func (a *ACLedService) CreateCertAuthority(ctx context.Context, ca CertAuthority) error {
 	if err := a.checkPermission(ctx, ActionUpsert, CollectionCertAuthorities, ca.ID); err != nil {
 		return trace.Wrap(err)
 	}
@@ -113,7 +113,7 @@ func (a *ACL) CreateCertAuthority(ctx context.Context, ca CertAuthority) error {
 
 // UpsertCertAuthority updates or inserts certificate authority
 // In case if CA can sign, Private
-func (a *ACL) UpsertCertAuthority(ctx context.Context, ca CertAuthority) error {
+func (a *ACLedService) UpsertCertAuthority(ctx context.Context, ca CertAuthority) error {
 	if err := a.checkPermission(ctx, ActionUpsert, CollectionCertAuthorities, ca.ID); err != nil {
 		return trace.Wrap(err)
 	}
@@ -121,7 +121,7 @@ func (a *ACL) UpsertCertAuthority(ctx context.Context, ca CertAuthority) error {
 }
 
 // GetCertAuthority returns Certificate Authority by given ID
-func (a *ACL) GetCertAuthority(ctx context.Context, id string) (*CertAuthority, error) {
+func (a *ACLedService) GetCertAuthority(ctx context.Context, id string) (*CertAuthority, error) {
 	if err := a.checkPermission(ctx, ActionRead, CollectionCertAuthorities, id); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -129,7 +129,7 @@ func (a *ACL) GetCertAuthority(ctx context.Context, id string) (*CertAuthority, 
 }
 
 // GetCertAuthorityCert returns Certificate Authority (only certificate) by it's ID
-func (a *ACL) GetCertAuthorityCert(ctx context.Context, id string) (*CertAuthority, error) {
+func (a *ACLedService) GetCertAuthorityCert(ctx context.Context, id string) (*CertAuthority, error) {
 	if err := a.checkPermission(ctx, ActionReadPublic, CollectionCertAuthorities, id); err != nil {
 		if err := a.checkPermission(ctx, ActionRead, CollectionCertAuthorities, id); err != nil {
 			return nil, trace.Wrap(err)
@@ -139,7 +139,7 @@ func (a *ACL) GetCertAuthorityCert(ctx context.Context, id string) (*CertAuthori
 }
 
 // GetCertAuthoritiesCerts returns Certificate Authority (only certificate) list
-func (a *ACL) GetCertAuthoritiesCerts(ctx context.Context) ([]CertAuthority, error) {
+func (a *ACLedService) GetCertAuthoritiesCerts(ctx context.Context) ([]CertAuthority, error) {
 	if err := a.checkPermission(ctx, ActionReadPublic, CollectionCertAuthorities, ""); err != nil {
 		if err := a.checkPermission(ctx, ActionRead, CollectionCertAuthorities, ""); err != nil {
 			return nil, trace.Wrap(err)
@@ -149,7 +149,7 @@ func (a *ACL) GetCertAuthoritiesCerts(ctx context.Context) ([]CertAuthority, err
 }
 
 // DeleteCertAuthority deletes Certificate Authority by ID
-func (a *ACL) DeleteCertAuthority(ctx context.Context, id string) error {
+func (a *ACLedService) DeleteCertAuthority(ctx context.Context, id string) error {
 	if err := a.checkPermission(ctx, ActionDelete, CollectionCertAuthorities, id); err != nil {
 		return trace.Wrap(err)
 	}
@@ -157,7 +157,7 @@ func (a *ACL) DeleteCertAuthority(ctx context.Context, id string) error {
 }
 
 // CreateTrustedRootBundle creates trusted root certificate bundle
-func (a *ACL) CreateTrustedRootBundle(ctx context.Context, bundle TrustedRootBundle) error {
+func (a *ACLedService) CreateTrustedRootBundle(ctx context.Context, bundle TrustedRootBundle) error {
 	if err := a.checkPermission(ctx, ActionUpsert, CollectionTrustedRootBundles, bundle.ID); err != nil {
 		return trace.Wrap(err)
 	}
@@ -165,7 +165,7 @@ func (a *ACL) CreateTrustedRootBundle(ctx context.Context, bundle TrustedRootBun
 }
 
 // UpsertTrustedRootBundle creates or updates trusted root certificate bundle
-func (a *ACL) UpsertTrustedRootBundle(ctx context.Context, bundle TrustedRootBundle) error {
+func (a *ACLedService) UpsertTrustedRootBundle(ctx context.Context, bundle TrustedRootBundle) error {
 	if err := a.checkPermission(ctx, ActionUpsert, CollectionTrustedRootBundles, bundle.ID); err != nil {
 		return trace.Wrap(err)
 	}
@@ -173,7 +173,7 @@ func (a *ACL) UpsertTrustedRootBundle(ctx context.Context, bundle TrustedRootBun
 }
 
 // GetTrustedRoot returns trusted root certificate by its ID
-func (a *ACL) GetTrustedRootBundle(ctx context.Context, id string) (*TrustedRootBundle, error) {
+func (a *ACLedService) GetTrustedRootBundle(ctx context.Context, id string) (*TrustedRootBundle, error) {
 	if err := a.checkPermission(ctx, ActionRead, CollectionTrustedRootBundles, id); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -181,7 +181,7 @@ func (a *ACL) GetTrustedRootBundle(ctx context.Context, id string) (*TrustedRoot
 }
 
 // DeleteTrustedRootBundle deletes TrustedRoot by its ID
-func (a *ACL) DeleteTrustedRootBundle(ctx context.Context, id string) error {
+func (a *ACLedService) DeleteTrustedRootBundle(ctx context.Context, id string) error {
 	if err := a.checkPermission(ctx, ActionDelete, CollectionTrustedRootBundles, id); err != nil {
 		return trace.Wrap(err)
 	}
@@ -189,7 +189,7 @@ func (a *ACL) DeleteTrustedRootBundle(ctx context.Context, id string) error {
 }
 
 // GetTrustedRootBundles returns a list of trusted root bundles
-func (a *ACL) GetTrustedRootBundles(ctx context.Context) ([]TrustedRootBundle, error) {
+func (a *ACLedService) GetTrustedRootBundles(ctx context.Context) ([]TrustedRootBundle, error) {
 	if err := a.checkPermission(ctx, ActionRead, CollectionTrustedRootBundles, ""); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -197,7 +197,7 @@ func (a *ACL) GetTrustedRootBundles(ctx context.Context) ([]TrustedRootBundle, e
 }
 
 // UpsertWorkload update existing or insert new workload
-func (a *ACL) UpsertWorkload(ctx context.Context, w Workload) error {
+func (a *ACLedService) UpsertWorkload(ctx context.Context, w Workload) error {
 	if err := a.checkPermission(ctx, ActionUpsert, CollectionWorkloads, w.ID); err != nil {
 		return trace.Wrap(err)
 	}
@@ -205,7 +205,7 @@ func (a *ACL) UpsertWorkload(ctx context.Context, w Workload) error {
 }
 
 // DeleteWorkload deletes workload
-func (a *ACL) DeleteWorkload(ctx context.Context, id string) error {
+func (a *ACLedService) DeleteWorkload(ctx context.Context, id string) error {
 	if err := a.checkPermission(ctx, ActionDelete, CollectionWorkloads, id); err != nil {
 		return trace.Wrap(err)
 	}
@@ -213,7 +213,7 @@ func (a *ACL) DeleteWorkload(ctx context.Context, id string) error {
 }
 
 // GetWorkload returns workload identified by ID
-func (a *ACL) GetWorkload(ctx context.Context, id string) (*Workload, error) {
+func (a *ACLedService) GetWorkload(ctx context.Context, id string) (*Workload, error) {
 	if err := a.checkPermission(ctx, ActionRead, CollectionWorkloads, id); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -221,7 +221,7 @@ func (a *ACL) GetWorkload(ctx context.Context, id string) (*Workload, error) {
 }
 
 // GetWorkloads returns workloads
-func (a *ACL) GetWorkloads(ctx context.Context) ([]Workload, error) {
+func (a *ACLedService) GetWorkloads(ctx context.Context) ([]Workload, error) {
 	if err := a.checkPermission(ctx, ActionRead, CollectionWorkloads, ""); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -232,7 +232,7 @@ func (a *ACL) GetWorkloads(ctx context.Context) ([]Workload, error) {
 // if you wish to cancel the stream, use ctx.Close
 // eventC will be closed by Subscribe function on errors or
 // cancelled subscribe
-func (a *ACL) Subscribe(ctx context.Context, eventC chan *Event) error {
+func (a *ACLedService) Subscribe(ctx context.Context, eventC chan *Event) error {
 	if err := a.checkPermission(ctx, ActionRead, CollectionWorkloads, ""); err != nil {
 		return trace.Wrap(err)
 	}
@@ -248,7 +248,7 @@ func (a *ACL) Subscribe(ctx context.Context, eventC chan *Event) error {
 }
 
 // GetSignPermission return permission for actor identified by SPIFFE ID
-func (a *ACL) GetSignPermission(ctx context.Context, sp SignPermission) (*SignPermission, error) {
+func (a *ACLedService) GetSignPermission(ctx context.Context, sp SignPermission) (*SignPermission, error) {
 	if err := a.checkPermission(ctx, ActionRead, CollectionSignPermissions, sp.ID.String()); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -256,7 +256,7 @@ func (a *ACL) GetSignPermission(ctx context.Context, sp SignPermission) (*SignPe
 }
 
 // UpsertSignPermission updates or inserts permission for actor identified by SPIFFE ID
-func (a *ACL) UpsertSignPermission(ctx context.Context, sp SignPermission) error {
+func (a *ACLedService) UpsertSignPermission(ctx context.Context, sp SignPermission) error {
 	if err := a.checkPermission(ctx, ActionUpsert, CollectionSignPermissions, ""); err != nil {
 		return trace.Wrap(err)
 	}
@@ -264,7 +264,7 @@ func (a *ACL) UpsertSignPermission(ctx context.Context, sp SignPermission) error
 }
 
 // DeleteSignPermission deletes sign permission
-func (a *ACL) DeleteSignPermission(ctx context.Context, sp SignPermission) error {
+func (a *ACLedService) DeleteSignPermission(ctx context.Context, sp SignPermission) error {
 	if err := a.checkPermission(ctx, ActionDelete, CollectionSignPermissions, ""); err != nil {
 		return trace.Wrap(err)
 	}
@@ -272,7 +272,7 @@ func (a *ACL) DeleteSignPermission(ctx context.Context, sp SignPermission) error
 }
 
 // GetPermission returns permission for actor identified by SPIFFE ID
-func (a *ACL) GetPermission(ctx context.Context, p Permission) (*Permission, error) {
+func (a *ACLedService) GetPermission(ctx context.Context, p Permission) (*Permission, error) {
 	if err := a.checkPermission(ctx, ActionRead, CollectionPermissions, ""); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -280,7 +280,7 @@ func (a *ACL) GetPermission(ctx context.Context, p Permission) (*Permission, err
 }
 
 // UpsertPermission updates or inserts permission for actor identified by SPIFFE ID
-func (a *ACL) UpsertPermission(ctx context.Context, p Permission) error {
+func (a *ACLedService) UpsertPermission(ctx context.Context, p Permission) error {
 	if err := a.checkPermission(ctx, ActionUpsert, CollectionPermissions, ""); err != nil {
 		return trace.Wrap(err)
 	}
@@ -288,7 +288,7 @@ func (a *ACL) UpsertPermission(ctx context.Context, p Permission) error {
 }
 
 // DeletePermission deletes permission
-func (a *ACL) DeletePermission(ctx context.Context, p Permission) error {
+func (a *ACLedService) DeletePermission(ctx context.Context, p Permission) error {
 	if err := a.checkPermission(ctx, ActionDelete, CollectionPermissions, ""); err != nil {
 		return trace.Wrap(err)
 	}

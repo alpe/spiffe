@@ -14,7 +14,7 @@ base-etcd:
 	  if [ "$$etcd_instance" != "" ]; then \
 	    docker rm -v $$etcd_instance; \
 	  fi; \
-	  docker run --net=host $(SPIFFE_TEST_ETCD_MOUNTS) --name=$(SPIFFE_TEST_ETCD_INSTANCE) -d -v $(SPIFFE_TEST_ETCD_CERTS):/certs $(SPIFFE_TEST_ETCD_IMAGE)  -name etcd0 -advertise-client-urls https://localhost:2379,https://localhost:4001  -listen-client-urls https://0.0.0.0:2379,https://0.0.0.0:4001  -initial-advertise-peer-urls https://localhost:2380  -listen-peer-urls https://0.0.0.0:2380  -initial-cluster-token etcd-cluster-1  -initial-cluster etcd0=https://localhost:2380  -initial-cluster-state new --cert-file=/certs/etcd1.pem --key-file=/certs/etcd1-key.pem --peer-cert-file=/certs/etcd1.pem --peer-key-file=/certs/etcd1-key.pem --peer-client-cert-auth --peer-trusted-ca-file=/certs/ca.pem -client-cert-auth --trusted-ca-file=/certs/ca.pem $(SPIFFE_TEST_ETCD_FLAGS) ; \
+	  docker run $(SPIFFE_TEST_ETCD_MOUNTS) --name=$(SPIFFE_TEST_ETCD_INSTANCE) -p 127.0.0.1:2379:2379 -p 127.0.0.1:4001:4001 -d -v $(SPIFFE_TEST_ETCD_CERTS):/certs $(SPIFFE_TEST_ETCD_IMAGE)  -name etcd0 -advertise-client-urls https://localhost:2379,https://localhost:4001  -listen-client-urls https://0.0.0.0:2379,https://0.0.0.0:4001  -initial-advertise-peer-urls https://localhost:2380  -listen-peer-urls https://0.0.0.0:2380  -initial-cluster-token etcd-cluster-1  -initial-cluster etcd0=https://localhost:2380  -initial-cluster-state new --cert-file=/certs/etcd1.pem --key-file=/certs/etcd1-key.pem --peer-cert-file=/certs/etcd1.pem --peer-key-file=/certs/etcd1-key.pem --peer-client-cert-auth --peer-trusted-ca-file=/certs/ca.pem -client-cert-auth --trusted-ca-file=/certs/ca.pem $(SPIFFE_TEST_ETCD_FLAGS) ; \
 	fi;
 
 .PHONY: test-etcd

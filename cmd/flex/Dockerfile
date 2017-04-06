@@ -1,5 +1,7 @@
-FROM scratch
-COPY flex /
+FROM alpine:latest
+COPY flex /opt/spiffe/flex
+COPY install-flex.sh /opt/spiffe/
 
-ENTRYPOINT ["/flex"]
-CMD [""]
+VOLUME /var/lib/spiffe/flex
+
+CMD ["/opt/spiffe/install-flex.sh"]

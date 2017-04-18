@@ -29,6 +29,7 @@ spec:
           {
             "name": "install",
             "image": "apiserver:5000/spiffe:latest",
+            "imagePullPolicy":"Always",
             "command": ["/opt/spiffe/install-flex.sh"],
             "volumeMounts": [
                 {
@@ -41,7 +42,7 @@ spec:
                 }
             ]
           }
-        ]'        
+        ]'
     spec:
       containers:
       - image: apiserver:5000/spiffe:latest
@@ -58,7 +59,7 @@ spec:
           - name: spiffe-run
             mountPath: /var/run/spiffe
           - name: kubelet-pods
-            mountPath: /var/lib/kubelet-pods
+            mountPath: /var/lib/kubelet/pods
       volumes:
         - name: flex-plugin
           hostPath:
@@ -70,7 +71,7 @@ spec:
           hostPath:
             path: /var/run/spiffe
         - name: spiffe-creds
-          sec/et:
+          secret:
             secretName: spiffe-creds
 ---
 apiVersion: extensions/v1beta1
